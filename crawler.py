@@ -15,6 +15,7 @@ class Crawler(threading.Thread):
        Just use the attributes outer_link_set and inner_link_set getting link."""
     q = Queue.Queue()
     dic = {}
+    thread_lock = threading.RLock()
 
     def __init__(self, name):
         threading.Thread.__init__(self)
@@ -28,12 +29,12 @@ class Crawler(threading.Thread):
             if Crawler.q.empty():
                 self.get_url()
                 continue
-            print "Grab by " + self.getName()
             self.url = Crawler.q.get()
             response = self.get_web()
             while not response:
                 self.url = Crawler.q.get()
                 response = self.get_web()
+                
             text = self.change_to_string(response)
             result = self.extract_link()
             outer_link = []
@@ -79,14 +80,15 @@ class Crawler(threading.Thread):
         domain = re.sub(change_pattern, '_', domain_list[1])
 
         name = domain + '.txt'
-        #self.store_text(name)
-        # print texts
+        self.store_text(name)
 
     def store_text(self, name):
         """This function is used for get the text of the web."""
+        Crawler.thread_lock.acquire()
         f = file(name, 'a+')
         f.write(self.text)
         f.close()
+        Crawler.thread_lock.release()
 
     def extract_link(self):
         """This function is used for extract all links from the web.
