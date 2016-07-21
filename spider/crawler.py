@@ -1,34 +1,38 @@
+#!/usr/bin/python3
 # -*- coding: UTF-8 -*-
 from DNS_Resolver import DNSReslover
 import requests
 from lxml import etree
 import re
-import Queue
+from queue import Queue
 import threading
 
 
 class Crawler(threading.Thread):
     """Class for crawler.
-       It can grab the web information and extract the inner and the outer links
-          and store the whole html file in database.
-       You can call the run_crawler() function to run the crawler.
-       Just use the attributes outer_link_set and inner_link_set getting link."""
-    q = Queue.Queue()
-    dic = {}
+       @usage: grab the web information and extract the inner and the outer links
+               and store the whole html file in database.
+       @outer_link_set: outer links
+       @inner_link_set: inner links
+    """
+    _queue = Queue()
+    result_dict = {}  
 
     def __init__(self, name):
         threading.Thread.__init__(self)
         self.name = name
         self.text = ""
         self.url = ""
+        self.url_sender = None
+        self.url_requester = None
 
     def run(self):
-        """This is  for run a crawler."""
+        """run a crawler."""
         while True :
             if Crawler.q.empty():
                 self.get_url()
                 continue
-            print "Grab by " + self.getName()
+            print("Grab by " + self.getName())
             self.url = Crawler.q.get()
             response = self.get_web()
             while not response:
@@ -38,22 +42,24 @@ class Crawler(threading.Thread):
             result = self.extract_link()
             outer_link = []
             inner_link = []
-            self.handle_link( result, inner_link, outer_link)
+            self.handle_link(result, inner_link, outer_link)
             outer_link_set = set(outer_link)
             inner_link_set = set(inner_link)
             Crawler.dic[self.url] = inner_link_set
 
     def get_inner_links(self):
-        """The interface for inner links"""
-        return Crawler.dic
+        """The interface for inner links""" #TODO: change
+        return Crawler.result_dict
 
     def get_url(self):
         """This function is used for get url list from the left"""
         urls_dic = resolver.get_resolved_url_packet()
         for url in urls_dic.keys():
-            if not urls_dic[url]:
+            if not urls_dic[url]:  #resolver fail to resolve url -> ip
                 Crawler.dic[url] = 'fail'
+                break
             Crawler.q.put(urls_dic[url])
+            
 
     def get_web(self):
         """This function used for grab a web information and return a Response object."""
@@ -101,7 +107,8 @@ class Crawler(threading.Thread):
            For inner links, it should add the header and delete the tag#, remove .css and javascript link"""
         # distinct inner from outer link through the header http
         pattern = re.compile(r'http://|https://')
-        # get the url domain to define the website
+        # get the url domain to define the website 
+        # TODO: domain name regex may need modification
         domain_pattern = re.compile(r'http://[\w+\.]+|https://[\w+\.]+')
         domain = re.match(domain_pattern, self.url).group()
         # define the .css or javascript file
@@ -119,7 +126,7 @@ class Crawler(threading.Thread):
             else:  # not begin with http
                 test_inner = re.match(useless_pattern,element)  # test if it's a css or javascript file
                 if not test_inner:
-                    test_tag = re.match(tag_pattern,element)
+                    test_tag = re.match(ttag_pattern,element)
                     if test_tag:  # test if it's a page tag#
                         pass
                     else:
