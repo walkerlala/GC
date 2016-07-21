@@ -1,2 +1,2 @@
 # GC
-guochuang repo
+guochuang repository
