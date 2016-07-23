@@ -2,18 +2,23 @@ import socket
 import urllib.parse
 from DNS_Cache import *
 from Psu_Queue import *
+from NetworkHandler import NetworkeHandler
 
-DNS_cache = DNSCache()
-psu_queue = PsuQueue('web_link.txt')
-
+socket.setdefaulttimeout(60)
 
 class DNSResolver:
-    """ Class to help resolve url's IP address
-    """
+    """ Class to help resolve url's IP address """
+
+    DNS_cache = DNSCache()
 
     log_file = open("DNSResolver.log","w+")
 
-    def __init__(self):
+    def __init__(self, ip, port):
+        #_source_ip, _source_port即links的来源
+        self._source_ip = ip
+        self._source_port = port
+        self.links_requester = NetworkeHandler(self._source_ip, self._source_port)
+
         self._url = ""
         self._url_suffix = ""
         self._host = ""
@@ -37,8 +42,9 @@ class DNSResolver:
         self._host, self._url_suffix = urllib.parse.splithost(rest)
 
     # get ip address
-    def resolve_ip(self, _psu_queue):
-        url = _psu_queue.pop_url()
+    def resolve_ip(self):
+        #url = _psu_queue.pop_url()
+        links = self.links_requester.request()
         self.resolve_host(url)
         if DNS_cache.query_cache(self._host, self._ip):
             self._ip = DNS_cache.wanted_ip(self._host)
@@ -82,19 +88,11 @@ class DNSResolver:
         #when _buffer is pretty small, get some links
         if (len(self._buffer) <= 5 * self._resolved_url_packet_size):
             for _ in range(self._buffer_size):
-                self.resolve_ip(psu_queue)
+                self.resolve_ip()
             for _ in range(self._resolved_url_packet_size):
                 temp.append(self._buffer.popitem(last=False))
-            return dict(temp)
         else:
             for _ in range(self._resolved_url_packet_size):
                 temp.append(self._buffer.popitem(last=False))
-
-            return dict(temp)
-
-    # print the buffer
-    def print_buffer(self):
-        print(len(self._buffer))
-        for k, v in self._buffer.items():
-            print(k, ";", v)
+        return dict(temp)
 

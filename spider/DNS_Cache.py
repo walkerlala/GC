@@ -1,6 +1,5 @@
 import collections
 
-
 # use Singleton pattern
 def singleton(cls, *args, **kw):
     instances = {}
@@ -10,7 +9,6 @@ def singleton(cls, *args, **kw):
             instances[cls] = cls(*args, **kw)
         return instances[cls]
     return _singleton
-
 
 @singleton
 class DNSCache(object):
