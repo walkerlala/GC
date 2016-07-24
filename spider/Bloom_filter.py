@@ -603,3 +603,9 @@ class Bloom_filter(object):
         return True
 
         #return all(self.array_[i] & mask for i, mask in self.probe_bitnoer(self, key))
+
+    #should add this funcion
+#   def __len__(self):
+#       pass
+#
+
