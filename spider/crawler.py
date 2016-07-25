@@ -13,7 +13,9 @@ from NetworkHandler import NetworkHandler
 import time
 import sys
 
-#TODO: set default timeout value for requests lib
+#NOTES: has set default timeout value for requests lib
+
+#TODO: check functionality of the get links part of DNS_Resolver
 
 left_ip = '127.0.0.1'
 left_port = 5005    #port have to be of type int, not str. f**k
@@ -21,12 +23,11 @@ left_port = 5005    #port have to be of type int, not str. f**k
 class Crawler(object):
 
     _log = open("crawler.log","w+")
-    _lock = threading.Lock()
+    _lock = threading.Lock()  #lock to log file
 
     def __init__(self):
-        self.thread_pool_size = 4
+        self.thread_pool_size = 1  #TODO: change it to 4 or higher
         self.thread_pool = ThreadPool(self.thread_pool_size)
-        self._queue = Queue()
         self._result_dict = {}
         self.dns_resolver = DNSResolver(left_ip, left_port)
         self.result_sender = NetworkHandler(left_ip, left_port)
@@ -43,26 +44,29 @@ class Crawler(object):
         try:
             #TODO:could check the Content-Type of the resp to make sure that it's not a image or video
             response = requests.get(resolved_url, headers = headers, timeout=60)
+            print("Get response; resp status code:[%d]" % response.status_code)
             if (response.status_code == requests.status_codes.codes.ok): #200
+                print("Good response,status code:[%d]" % response.status_code)
                 return response
             else:
                 return None
         except Exception as e:
             with Crawler._lock: #避免race condition
-                Crawler._log.write("Fail to fetch resolved_url. Exception: %s\n", str(e)) 
+                print("Fail to fetch resolved_url. exception: %s" % str(e))
+                Crawler._log.write("Fail to fetch resolved_url. Exception: %s\n" % str(e)) 
+                Crawler._log.flush()
             return None
    
     def run(self):
         """@url_dict: a dict, used to hold the raw urls get from the left.  """
         while (True):
             try:
-                #a dict of format { url1 => resolved_url,
-                #                   url2 => resolved_url,
-                #                   ...}
+                #a dict of format { url1 => resolved_url, url2 => resolved_url, ...}
                 url_dict = self.dns_resolver.get_resolved_url_packet()
-                print("Crawler get some urls:[%s]\n" % str(url_dict))
+                print("Crawler get some urls:[%s]" % str(url_dict))
             except Exception as e:
-                Crawler._log.write("Cannot get resolved url packet\n")
+                Crawler._log.write("Cannot get resolved url packet. Exception:[%s]\n" % str(e))
+                Crawler._log.flush()
                 time.sleep(0.5)
                 continue
             if not url_dict:
@@ -80,18 +84,17 @@ class Crawler(object):
                     fail_resolved_dict[key] = None 
 
             #未解析成功的就直接是FAIL了
-            for key, value in fail_resolved_dict.items():
-                self._result_dict[key] = "FAIL"
+            self._result_dict.update(fail_resolved_dict)
 
             #处理解析成功的
-            Crawler._log.write("Get resolved_dict:[%s]\n",str(resolved_dict))
+            Crawler._log.write("Get resolved_dict:[%s]\n" % str(resolved_dict))
             responses = self.thread_pool.map(self.get_web, resolved_dict.values())
             #close the pool and wait for all the work to finish
             self.thread_pool.close()
             self.thread_pool.join()
 
             #开始处理response，将得到的子内链与源链接组合在一起然后返回
-            original_urls = resolved_dict.keys()
+            original_urls = list(resolved_dict.keys())
             for index, resp in enumerate(responses):
                 origin = original_urls[index]
                 if not resp:
@@ -102,25 +105,32 @@ class Crawler(object):
                     except Exception as e:
                         Crawler._log.write("Fail to change_to_string for url:[%s]\n" % str(origin))
                         text = resp.text
-                    outer_links, inner_links = self.extract_link(origin, resp)
+                    outer_links, inner_links = self.extract_link(origin, text)
                     outer_links = set(outer_links)  #outer_links not handled yet
                     inner_links = set(inner_links)
                     self._result_dict[origin] = inner_links
-            
+
             #将东西返回给左边
             #对self._result_dict做serialization，以便可以在TCP通道中传输
+            print("sending back things to the left...")
+            #just a test, to see if we get some thing useful
+            with Crawler._lock:
+                print("self._result_dict:[%s]" % str(self._result_dict))
+                Crawler._log.write("self._result_dict:[%s]" % str(self._result_dict))
+                Crawler._log.flush()
+
             data = pickle.dumps(self._result_dict)
             try:
                 self.result_sender.send(data)
+                print("successfully sent back to the left")
             except Exception as e:
-                Crawler._log.write(("Exception: fail sending to Manager."
-                                    "unsent links:[%s]\n"), str(self._result_dict))
+                print("exception happen when sent things back to the left:[%s]" % str(e))
+                Crawler._log.write(("Fail sending to Manager:[%s]\n"
+                                    "unsent links:[%s]\n") % (str(e),str(self._result_dict)))
+                Crawler._log.flush()
             finally:
                 self._result_dict = {}
 
-            #just a test
-            Crawler._log.write("Crawled content(links):[%s]\n" % str(data))
-            
     def change_to_string(self, response):
         """Change the Response object to string and return it"""
         html_text = etree.HTML(response.text)
