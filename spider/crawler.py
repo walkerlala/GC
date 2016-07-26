@@ -7,7 +7,7 @@
 
 import re
 import threading
-from multiprocessing.dummy import Pool as ThreadPool
+from concurrent.futures import ThreadPoolExecutor
 import pickle
 import time
 from DNS_Resolver import DNSResolver
@@ -19,11 +19,40 @@ from unbuffered_output import uopen
 left_ip = '127.0.0.1'
 left_port = 5005    #port have to be of type int, not str. f**k
 
+log = uopen("crawler.log", "w+")
+lock = threading.Lock()  #lock to log file
+
+def get_web(resolved_url): #*args would refer to (log, lock)
+    """This function used for grab a web information and return a Response object."""
+
+    #fake as YoudaoBot. Can also fake as GoogleBot, or Baidu Spider,
+    #but this maybe easily detect due to ip-mismatch
+    #NOTE: According to RFC 7230, HTTP header names are case-insensitive
+    headers = {'User-Agent': 'YoudaoBot',
+               'Accept':'text/plain, text/html', #want only text
+               #'Accept-Encoding':"",  Requests would handle encoding and decoding for us
+              }
+    try:
+        #TODO:could check the Content-Type of the resp to make sure that
+        #     it's not a image or video
+        response = requests.get(resolved_url, headers=headers, timeout=60)
+        print("Get response[%d]" % response.status_code)
+        with lock:
+            log.write(
+                    "Response[%d] of url:[%s]\n" % (response.status_code, resolved_url))
+        if (response.status_code == requests.codes.ok): #200
+            return response
+        else:
+            return None
+    except Exception as e:
+        with lock: #避免race condition
+            print("Fail to fetch resolved_url. exception: %s" % str(e))
+            log.write("Fail to fetch resolved_url. Exception: %s\n" % str(e))
+        return None
+
 class Crawler(object):
     """ The crawler. Multiple thread would be started in method run() """
 
-    _log = uopen("crawler.log", "w+")
-    _lock = threading.Lock()  #lock to log file
 
     def __init__(self):
         self.thread_pool_size = 4
@@ -31,33 +60,6 @@ class Crawler(object):
         self._result_dict = {}
         self.dns_resolver = DNSResolver(left_ip, left_port)
         self.result_sender = NetworkHandler(left_ip, left_port)
-
-    def get_web(self, resolved_url):
-        """This function used for grab a web information and return a Response object."""
-        #fake as YoudaoBot. Can also fake as GoogleBot, or Baidu Spider,
-        #but this maybe easily detect due to ip-mismatch
-        #NOTE: According to RFC 7230, HTTP header names are case-insensitive
-        headers = {'User-Agent': 'YoudaoBot',
-                   'Accept':'text/plain, text/html', #want only text
-                   #'Accept-Encoding':"",  Requests would handle encoding and decoding for us
-                  }
-        try:
-            #TODO:could check the Content-Type of the resp to make sure that
-            #     it's not a image or video
-            response = requests.get(resolved_url, headers=headers, timeout=60)
-            print("Get response[%d]" % response.status_code)
-            with Crawler._lock:
-                Crawler._log.write(
-                        "Response[%d] of url:[%s]\n" % (response.status_code, resolved_url))
-            if (response.status_code == requests.codes.ok): #200
-                return response
-            else:
-                return None
-        except Exception as e:
-            with Crawler._lock: #避免race condition
-                print("Fail to fetch resolved_url. exception: %s" % str(e))
-                Crawler._log.write("Fail to fetch resolved_url. Exception: %s\n" % str(e))
-            return None
 
     def run(self):
         """ main routine of crawler class
@@ -67,12 +69,12 @@ class Crawler(object):
                 #a dict of format { url1 => resolved_url, url2 => resolved_url, ...}
                 url_dict = self.dns_resolver.get_resolved_url_packet()
             except Exception as e:
-                Crawler._log.write("Cannot get resolved url packet. Exception:[%s]\n" % str(e))
+                log.write("Cannot get resolved url packet. Exception:[%s]\n" % str(e))
                 time.sleep(0.5)
                 continue
             if not url_dict:
                 print("Empty urls from dns_resolver. Crawler exit")
-                Crawler._log.write("Empty urls from dns_resolver. Crawler exit\n")
+                log.write("Empty urls from dns_resolver. Crawler exit\n")
                 break
 
             #将解析成功的和未成功的分开来
@@ -88,12 +90,9 @@ class Crawler(object):
             self._result_dict.update(fail_resolved_dict)
 
             #处理解析成功的
-            Crawler._log.write("Get resolved_dict:[%s]\n" % str(resolved_dict))
-            thread_pool = ThreadPool(self.thread_pool_size)
-            responses = thread_pool.map(self.get_web, resolved_dict.values())
-            #close the pool and wait for all the work to finish
-            #thread_pool.close()
-            #thread_pool.join()
+            log.write("Get resolved_dict:[%s]\n" % str(resolved_dict))
+            with ThreadPoolExecutor(1000) as pool:
+                responses = pool.map(get_web, resolved_dict.values())
 
             #开始处理response，将得到的子内链与源链接组合在一起然后返回
             original_urls = list(resolved_dict.keys())
@@ -105,7 +104,7 @@ class Crawler(object):
                     try:
                         text = self.change_to_string(resp)
                     except Exception as e:
-                        Crawler._log.write("Fail to change_to_string for url:[%s]\n" % str(origin))
+                        log.write("Fail to change_to_string for url:[%s]\n" % str(origin))
                         text = resp.text
                     outer_links, inner_links = self.extract_link(origin, text)
                     outer_links = set(outer_links)  #outer_links not handled yet
@@ -116,8 +115,8 @@ class Crawler(object):
             #对self._result_dict做serialization，以便可以在TCP通道中传输
             print("sending back things to the left...")
             #just a test, to see if we get some thing useful
-            with Crawler._lock:
-                Crawler._log.write("self._result_dict:[%s]\n" % str(self._result_dict))
+            with lock:
+                log.write("self._result_dict:[%s]\n" % str(self._result_dict))
 
             data = pickle.dumps(self._result_dict)
             try:
@@ -125,7 +124,7 @@ class Crawler(object):
                 print("successfully sent back to the left")
             except Exception as e:
                 print("exception happen when sent things back to the left:[%s]" % str(e))
-                Crawler._log.write(("Fail sending to Manager:[%s]\n"
+                log.write(("Fail sending to Manager:[%s]\n"
                                     "unsent links:[%s]\n") % (str(e), str(self._result_dict)))
             finally:
                 self._result_dict = {}
