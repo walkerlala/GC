@@ -1,72 +1,73 @@
-#!/usr/bin/python3
+#!/usr/bin/python3 -u
 # -*- coding: UTF-8 -*-
 
-from DNS_Resolver import DNSResolver
-import requests
-from lxml import etree
+""" crawler node """
+
+# pylint: disable=superfluous-parens, invalid-name, broad-except
+
 import re
-from queue import Queue
 import threading
 from multiprocessing.dummy import Pool as ThreadPool
 import pickle
-from NetworkHandler import NetworkHandler
 import time
-import sys
-
-#NOTES: has set default timeout value for requests lib
-
-#TODO: check functionality of the get links part of DNS_Resolver
+from DNS_Resolver import DNSResolver
+import requests
+from lxml import etree
+from NetworkHandler import NetworkHandler
+from unbuffered_output import uopen
 
 left_ip = '127.0.0.1'
 left_port = 5005    #port have to be of type int, not str. f**k
 
 class Crawler(object):
+    """ The crawler. Multiple thread would be started in method run() """
 
-    _log = open("crawler.log","w+")
+    _log = uopen("crawler.log", "w+")
     _lock = threading.Lock()  #lock to log file
 
     def __init__(self):
-        self.thread_pool_size = 1  #TODO: change it to 4 or higher
-        self.thread_pool = ThreadPool(self.thread_pool_size)
+        self.thread_pool_size = 4
+        #self.thread_pool = ThreadPool(self.thread_pool_size)
         self._result_dict = {}
         self.dns_resolver = DNSResolver(left_ip, left_port)
         self.result_sender = NetworkHandler(left_ip, left_port)
 
-    def get_web(self,resolved_url):
+    def get_web(self, resolved_url):
         """This function used for grab a web information and return a Response object."""
         #fake as YoudaoBot. Can also fake as GoogleBot, or Baidu Spider,
         #but this maybe easily detect due to ip-mismatch
         #NOTE: According to RFC 7230, HTTP header names are case-insensitive
-        headers = {'User-Agent': 'YoudaoBot', 
+        headers = {'User-Agent': 'YoudaoBot',
                    'Accept':'text/plain, text/html', #want only text
                    #'Accept-Encoding':"",  Requests would handle encoding and decoding for us
-                   }  
+                  }
         try:
-            #TODO:could check the Content-Type of the resp to make sure that it's not a image or video
-            response = requests.get(resolved_url, headers = headers, timeout=60)
-            print("Get response; resp status code:[%d]" % response.status_code)
-            if (response.status_code == requests.status_codes.codes.ok): #200
-                print("Good response,status code:[%d]" % response.status_code)
+            #TODO:could check the Content-Type of the resp to make sure that
+            #     it's not a image or video
+            response = requests.get(resolved_url, headers=headers, timeout=60)
+            print("Get response[%d]" % response.status_code)
+            with Crawler._lock:
+                Crawler._log.write(
+                        "Response[%d] of url:[%s]\n" % (response.status_code, resolved_url))
+            if (response.status_code == requests.codes.ok): #200
                 return response
             else:
                 return None
         except Exception as e:
             with Crawler._lock: #避免race condition
                 print("Fail to fetch resolved_url. exception: %s" % str(e))
-                Crawler._log.write("Fail to fetch resolved_url. Exception: %s\n" % str(e)) 
-                Crawler._log.flush()
+                Crawler._log.write("Fail to fetch resolved_url. Exception: %s\n" % str(e))
             return None
-   
+
     def run(self):
-        """@url_dict: a dict, used to hold the raw urls get from the left.  """
+        """ main routine of crawler class
+            @url_dict: a dict, used to hold the raw urls get from the left.  """
         while (True):
             try:
                 #a dict of format { url1 => resolved_url, url2 => resolved_url, ...}
                 url_dict = self.dns_resolver.get_resolved_url_packet()
-                print("Crawler get some urls:[%s]" % str(url_dict))
             except Exception as e:
                 Crawler._log.write("Cannot get resolved url packet. Exception:[%s]\n" % str(e))
-                Crawler._log.flush()
                 time.sleep(0.5)
                 continue
             if not url_dict:
@@ -81,17 +82,18 @@ class Crawler(object):
                 if value:
                     resolved_dict[key] = value
                 else:
-                    fail_resolved_dict[key] = None 
+                    fail_resolved_dict[key] = None
 
             #未解析成功的就直接是FAIL了
             self._result_dict.update(fail_resolved_dict)
 
             #处理解析成功的
             Crawler._log.write("Get resolved_dict:[%s]\n" % str(resolved_dict))
-            responses = self.thread_pool.map(self.get_web, resolved_dict.values())
+            thread_pool = ThreadPool(self.thread_pool_size)
+            responses = thread_pool.map(self.get_web, resolved_dict.values())
             #close the pool and wait for all the work to finish
-            self.thread_pool.close()
-            self.thread_pool.join()
+            #thread_pool.close()
+            #thread_pool.join()
 
             #开始处理response，将得到的子内链与源链接组合在一起然后返回
             original_urls = list(resolved_dict.keys())
@@ -115,9 +117,7 @@ class Crawler(object):
             print("sending back things to the left...")
             #just a test, to see if we get some thing useful
             with Crawler._lock:
-                print("self._result_dict:[%s]" % str(self._result_dict))
-                Crawler._log.write("self._result_dict:[%s]" % str(self._result_dict))
-                Crawler._log.flush()
+                Crawler._log.write("self._result_dict:[%s]\n" % str(self._result_dict))
 
             data = pickle.dumps(self._result_dict)
             try:
@@ -126,8 +126,7 @@ class Crawler(object):
             except Exception as e:
                 print("exception happen when sent things back to the left:[%s]" % str(e))
                 Crawler._log.write(("Fail sending to Manager:[%s]\n"
-                                    "unsent links:[%s]\n") % (str(e),str(self._result_dict)))
-                Crawler._log.flush()
+                                    "unsent links:[%s]\n") % (str(e), str(self._result_dict)))
             finally:
                 self._result_dict = {}
 
@@ -150,7 +149,7 @@ class Crawler(object):
            delete the tag#, remove .css and javascript link"""
         # distinct inner from outer link through the header http
         pattern = re.compile(r'http://|https://')
-        # get the url domain to define the website 
+        # get the url domain to define the website
         # TODO: domain name regex may need modification
         domain_pattern = re.compile(r'http://[\w+\.]+|https://[\w+\.]+')
         domain = re.match(domain_pattern, origin_url).group()
@@ -161,17 +160,19 @@ class Crawler(object):
         outer_link_lists = []
         inner_link_lists = []
         for element in results:
-            match = re.match(pattern,element)
+            match = re.match(pattern, element)
             if match:  # begin with http
-                test_domain = re.match(domain_pattern, element).group()  # test the header for spcific definition
+                # test the header for spcific definition
+                test_domain = re.match(domain_pattern, element).group()
                 if test_domain != domain:
                     outer_link_lists.append(match.string)
                 else:  # same domain
                     inner_link_lists.append(element)
             else:  # not begin with http
-                test_inner = re.match(useless_pattern,element)  # test if it's a css or javascript file
+                # test if it's a css or javascript file
+                test_inner = re.match(useless_pattern, element)
                 if not test_inner:
-                    test_tag = re.match(tag_pattern,element)
+                    test_tag = re.match(tag_pattern, element)
                     if test_tag:  # test if it's a page tag#
                         pass
                     else:
@@ -181,7 +182,6 @@ class Crawler(object):
                     pass
 
         return (outer_link_lists, inner_link_lists)
-
 
 if __name__ == "__main__":
     crawler = Crawler()

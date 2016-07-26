@@ -440,6 +440,7 @@ def get_bitno_seed_rnd(bloom_filter, key):
         yield bitno % bloom_filter.num_bits_m
 
 
+#梅森旋转法
 MERSENNES1 = [2 ** x - 1 for x in [17, 31, 127]]
 MERSENNES2 = [2 ** x - 1 for x in [19, 67, 257]]
 

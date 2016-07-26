@@ -1,36 +1,45 @@
 #!/usr/bin/python
 #coding:utf-8
 
+""" Networking transfering utility """
+
 import socket
 import threading
-import sys
-import os
-import time
 import pickle
+from unbuffered_output import uopen #unbuffered open
 
 socket.setdefaulttimeout(60)
 
 class NetworkHandler:
     """ handle network """
 
+    log = uopen("NetworkHandler.log", "w+")
+    log_lock = threading.Lock() #lock to access log
+
     def __init__(self, ip, port):
         self._ip = ip
         self._port = port
-       
-    #data have to be raw(byte) string, not unicode 
+
+    #data have to be raw(byte) string, not unicode
     def send(self, data):
+        """ send data to (self._ip, self._port) """
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.connect((self._ip, self._port))
             #与worker建立连接，表示要发送数据
             if (self.establish_context(sock, b"SEND")):
                 sock.sendall(data)
+                sock.close()
             else:
-                raise Exception("Cannot establish valid connection with worker/server")
-            sock.close()
-        except Exception as e:
+                with NetworkHandler.log_lock:
+                    NetworkHandler.log.write(("Cannot establish valid connection(SEND)"
+                        "with worker/server[%s,%s]\n") % (str(self._ip), str(self._port)))
+                raise Exception(("Cannot establish valid connection(SEND) with"
+                    "worker/server[%s,%s]") % (str(self._ip), str(self._port)))
+        except Exception:
             raise
     def request(self):
+        """ request data from (self._ip, self._port) """
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.connect((self._ip, self._port))
@@ -39,11 +48,10 @@ class NetworkHandler:
                 while (True):
                     try:
                         data = sock.recv(512)
-                        print("NetworkHandler get some data from Manager:[%s]\n" % str(data))
                         if not data:  #finish getting data
                             break
                         links_raw.append(data)
-                    except Exception as e:
+                    except Exception:
                         #既然中断了连接，数据肯定不完整
                         raise 
                 links = b''.join(links_raw)
@@ -51,19 +59,22 @@ class NetworkHandler:
                 sock.close()
                 return pickle.loads(links)
             else:
-                raise Exception("Cannot establish valid connection with worker/server")
-        except Exception as e:
+                with NetworkHandler.log_lock:
+                    NetworkHandler.log.write(("Cannot establish valid connection(REQUEST)"
+                        "with worker/server[%s,%s]\n") % (str(self._ip), str(self._port)))
+                raise Exception(("Cannot establish valid connection(REQUEST) with"
+                    "worker/server[%s,%s]") % (str(self._ip),str(self._port)))
+        except Exception:
             raise
 
-    def establish_context(self,sock,connect_type):
+    def establish_context(self, sock, connect_type):
+        """ establish proper connection with the opposite """
         try:
             sock.sendall(connect_type)
-        except Exception as e:
+            resp = sock.recv(2)  #end of this round
+            if (resp == b'OK'): #handshake
+                return True
+        except Exception:
             return False
-        return True
-     ###       not ready for this handshake yet
-        #try:
-        #    received = sock.recv(16)
-        #    return True if received and (received.upper() == b"OK") else False
-        #except Exception as e:
-        #    return False 
+        return False
+
