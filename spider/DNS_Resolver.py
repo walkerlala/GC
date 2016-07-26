@@ -54,7 +54,7 @@ class DNSResolver:
                 for dictionary in DNSResolver.DNS_cache:
                     if (host == list(dictionary.keys())[0]):
                         ip_address = list(dictionary.values())[0]
-                        resolved = protocol + "://" + ip_address
+                        resolved = protocol + "://" + ip_address + url_suffix
                         break
                 if not resolved:
                     try:
