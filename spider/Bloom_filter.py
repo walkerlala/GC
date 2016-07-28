@@ -109,10 +109,9 @@ if HAVE_MMAP:
 
             byteno, bit_within_byteno = divmod(bitno, 8)
             mask = 1 << bit_within_byteno
-            char = self.mmap[byteno]
-            byte = ord(char) #return a integer representation of char
+            byte = self.mmap[byteno]
             byte |= mask
-            self.mmap[byteno] = chr(byte)  #chr() is the reverse of ord()
+            self.mmap[byteno] = byte
 
         def clear(self, bitno):
             '''clear bit number bitno - set it to false'''

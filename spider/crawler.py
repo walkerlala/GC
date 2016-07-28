@@ -10,6 +10,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 import pickle
 import time
+import urllib.parse
 from DNS_Resolver import DNSResolver
 import requests
 from lxml import etree
@@ -33,13 +34,15 @@ def get_web(resolved_url): #*args would refer to (log, lock)
                #'Accept-Encoding':"",  Requests would handle encoding and decoding for us
               }
     try:
-        #TODO:could check the Content-Type of the resp to make sure that
-        #     it's not a image or video
         response = requests.get(resolved_url, headers=headers, timeout=60)
         print("Get response[%d]" % response.status_code)
         with lock:
-            log.write(
-                    "Response[%d] of url:[%s]\n" % (response.status_code, resolved_url))
+            log.write("Response[%d] of url:[%s]\n" % (response.status_code, resolved_url))
+        #check whether we get a plain text response
+        #note that key in `response.headers` is case insensitive
+        if 'content-type' in response.headers:
+            if 'text/' not in response.headers['content-type']:
+                return None
         if (response.status_code == requests.codes.ok): #200
             return response
         else:
@@ -52,7 +55,6 @@ def get_web(resolved_url): #*args would refer to (log, lock)
 
 class Crawler(object):
     """ The crawler. Multiple thread would be started in method run() """
-
 
     def __init__(self):
         self.thread_pool_size = 4
@@ -84,7 +86,7 @@ class Crawler(object):
                 if value:
                     resolved_dict[key] = value
                 else:
-                    fail_resolved_dict[key] = None
+                    fail_resolved_dict[key] = 'FAIL'
 
             #未解析成功的就直接是FAIL了
             self._result_dict.update(fail_resolved_dict)
@@ -101,12 +103,13 @@ class Crawler(object):
                 if not resp:
                     self._result_dict[origin] = "FAIL"
                 else:
+                    #Note that we only accept a response of type 'text/html' here
+                    #Note that resp.text return unicode string
                     try:
-                        text = self.change_to_string(resp)
+                        outer_links, inner_links = self.extract_link(origin, resp.text)
                     except Exception as e:
-                        log.write("Fail to change_to_string for url:[%s]\n" % str(origin))
-                        text = resp.text
-                    outer_links, inner_links = self.extract_link(origin, text)
+                        log.write("Exception when extract_links:[%s], url:[%s]\n" % (str(e), origin))
+                        continue
                     outer_links = set(outer_links)  #outer_links not handled yet
                     inner_links = set(inner_links)
                     self._result_dict[origin] = inner_links
@@ -129,58 +132,61 @@ class Crawler(object):
             finally:
                 self._result_dict = {}
 
-    def change_to_string(self, response):
-        """Change the Response object to string and return it"""
-        html_text = etree.HTML(response.text)
-        return etree.tostring(html_text, pretty_print=True)
-
     def extract_link(self, origin_url, html):
         """This function is used for extract all links from the web.
-           Use the href attributes, Return the result."""
-        html_text = etree.HTML(html)
-        results = html_text.xpath('//@href')
-        return self.handle_link(origin_url, results)
-
-    def handle_link(self, origin_url, results):
-        """The function is used for deal with the links.
            Distinct the inner links and outer links.
            For inner links, it should add the header and
            delete the tag#, remove .css and javascript link"""
-        # distinct inner from outer link through the header http
-        pattern = re.compile(r'http://|https://')
+        html_text = etree.HTML(html)
+        links = html_text.xpath('//*/a/@href') #all the links, relative or absolute
+
+        origin_url = origin_url.strip()
         # get the url domain to define the website
-        # TODO: domain name regex may need modification
-        domain_pattern = re.compile(r'http://[\w+\.]+|https://[\w+\.]+')
-        domain = re.match(domain_pattern, origin_url).group()
-        # define the .css or javascript file
-        useless_pattern = re.compile(r'/|javascript|\S*.css')
-        # define the tag#
+        protocal, domain = self.get_protocal_domain(origin_url)
+
+        #useless file pattern (something like xxx.jpg, xxx.mp4, xxx.css, xxx.pdf, etc)
+        uf_pattern = re.compile(r'\..{0,5}')
+        #unsupported protocal pattern(something like ftp://, sftp://, thunders://, etc)
+        up_pattern = re.compile(r'^.{0,8}:')
+        #tag link pattern
         tag_pattern = re.compile(r'\S*#\S*')
+
         outer_link_lists = []
         inner_link_lists = []
-        for element in results:
-            match = re.match(pattern, element)
-            if match:  # begin with http
-                # test the header for spcific definition
-                test_domain = re.match(domain_pattern, element).group()
+        #we only support http/https protocal
+        sp_pattern = re.compile(r'http://|https://')
+        for element in links:
+            element = element.strip()
+            if re.match(sp_pattern, element):  # begin with http/https
+                #first check if this match those useless pattern
+                if re.findall(uf_pattern, element) or re.findall(tag_pattern, element):
+                    continue
+                #check whether it's outer link or inner link
+                test_protocal, test_domain = self.get_protocal_domain(element)
                 if test_domain != domain:
-                    outer_link_lists.append(match.string)
-                else:  # same domain
-                    inner_link_lists.append(element)
-            else:  # not begin with http
-                # test if it's a css or javascript file
-                test_inner = re.match(useless_pattern, element)
-                if not test_inner:
-                    test_tag = re.match(tag_pattern, element)
-                    if test_tag:  # test if it's a page tag#
-                        pass
-                    else:
-                        link = domain + '/' + element
-                        inner_link_lists.append(link)
+                    outer_link_lists.append(element)
                 else:
-                    pass
+                    inner_link_lists.append(element)
+            elif re.findall(uf_pattern, element):
+                continue
+            elif re.findall(tag_pattern, element):
+                continue
+            elif re.findall(up_pattern, element):
+                continue
+            else:
+                if element.startswith('/'):
+                    link = protocal + '://' + domain + element
+                else:
+                    link = protocal + '://' + domain + '/' + element
+                inner_link_lists.append(link)
 
         return (outer_link_lists, inner_link_lists)
+
+    def get_protocal_domain(self, url):
+        """ return protocal and domain """
+        protocal, rest = urllib.parse.splittype(url)
+        host, url_suffix = urllib.parse.splithost(rest)
+        return (protocal, host)
 
 if __name__ == "__main__":
     crawler = Crawler()

@@ -66,9 +66,9 @@ class Manager:
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.listen(self.listen_num)
         #bloom_filter里面存放已经爬过的链接(或许没有爬成功)
-        self.bloom_filter = Bloom_filter.Bloom_filter(1000,
+        self.bloom_filter = Bloom_filter.Bloom_filter(10000,
                                                  0.001,  #error rate
-                                                 filename="/tmp/blmftr_tmp",
+                                                 filename=("/tmp/blmftr_tmp",-1),
                                                  start_fresh=True)
         self.bf_lock = threading.Lock() #lock to access bloom_filter
         self.pr_lock = threading.Lock() #lock to access priority queue
@@ -78,6 +78,8 @@ class Manager:
         self.thread_num = thread_num
         self._log = uopen("Manager.log", "w+")
         self.log_lock = threading.Lock()
+        self._links_track = uopen("how-many-links.links", "w+")
+        self._links_lock = threading.Lock()
         #MACRO,represent whether crawler want to send back links or get links from here
         self.SEND = 1
         self.REQUEST = 0
@@ -100,17 +102,25 @@ class Manager:
                 _result_dict = pickle.loads(data)
                 for key, value in _result_dict.items():
                     #if fail to crawl the original link, then just discard it
+                    #we should distinguish 'FAIL' and 'NO-SUB-LINKS'
                     if (value == 'FAIL'):
                         with self.bf_lock:
                             #加入bloom_filter之中，否则这个链接会被重爬
                             self.bloom_filter.add(key)
                     else:
+                        tmp = []
                         with self.bf_lock:
+                            tmp.append(key)
                             self.bloom_filter.add(key)
                             for sub_link in value:
+                                tmp.append(sub_link)
                                 if sub_link not in self.bloom_filter:
                                     with self.pr_lock:
                                         self.prio_que.append(sub_link)
+                        #write all the link to `self._links_track`
+                        with self._links_lock:
+                            for link in tmp:
+                                self._links_track.write(str(link))
             elif (method == self.REQUEST):
                 conn.sendall(b'OK')
                 """假如prioQueue里面没有了就返回一个空的lists"""

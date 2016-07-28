@@ -72,27 +72,18 @@ class DNSResolver:
         return resolved_links
 
     def get_resolved_url_packet(self):
-        """ get a bunch of `url=>resolved_url` """
+        """ just return what it's """
         if len(self._buffer) < self._buffer_size_threshold:
             try:
                 links = self.links_requester.request()
-                #if manager no longer have any links,
-                #then we should use what we left. If no
-                #more links can be given out, then we should
-                #notify the caller by returning a empty dict
                 if not links:
-                    #if we still have some, just return it.
-                    #Otherwise, we would return a empty dict
                     tmp = self._buffer
                     self._buffer = {}
                     return tmp
                 else:
-                    resolved_links = self.resolve_url(links)
-                    self._buffer.update(zip(links, resolved_links))
-                    #make sure that we don't exceed the limit
-                    if (self._nsent < len(self._buffer)):
+                    self._buffer.update(zip(links, links))
+                    if (self._nsent > len(self._buffer)):
                         self._nsent = len(self._buffer)
-                    #return self._nsent links
                     tmp = {}
                     iterator = iter(self._buffer)
                     to_be_del = []
@@ -107,7 +98,7 @@ class DNSResolver:
                 raise
         else:
             #make sure that we don't exceed the limit
-            if (self._nsent < len(self._buffer)):
+            if (self._nsent > len(self._buffer)):
                 self._nsent = len(self._buffer)
             #we have enough links, so just return
             tmp = {}
@@ -120,4 +111,54 @@ class DNSResolver:
             for item in to_be_del:
                 del self._buffer[item]
             return tmp
+
+#    def get_resolved_url_packet(self):
+#        """ get a bunch of `url=>resolved_url` """
+#        if len(self._buffer) < self._buffer_size_threshold:
+#            try:
+#                links = self.links_requester.request()
+#                #if manager no longer have any links,
+#                #then we should use what we left. If no
+#                #more links can be given out, then we should
+#                #notify the caller by returning a empty dict
+#                if not links:
+#                    #if we still have some, just return it.
+#                    #Otherwise, we would return a empty dict
+#                    tmp = self._buffer
+#                    self._buffer = {}
+#                    return tmp
+#                else:
+#                    resolved_links = self.resolve_url(links)
+#                    self._buffer.update(zip(links, resolved_links))
+#                    #make sure that we don't exceed the limit
+#                    if (self._nsent > len(self._buffer)):
+#                        self._nsent = len(self._buffer)
+#                    #return self._nsent links
+#                    tmp = {}
+#                    iterator = iter(self._buffer)
+#                    to_be_del = []
+#                    for count, item in enumerate(iterator):
+#                        if (count < self._nsent):
+#                            tmp[item] = self._buffer[item]
+#                            to_be_del.append(item)
+#                    for item in to_be_del:
+#                        del self._buffer[item]
+#                    return tmp
+#            except Exception:
+#                raise
+#        else:
+#            #make sure that we don't exceed the limit
+#            if (self._nsent > len(self._buffer)):
+#                self._nsent = len(self._buffer)
+#            #we have enough links, so just return
+#            tmp = {}
+#            iterator = iter(self._buffer)
+#            to_be_del = []
+#            for count, item in enumerate(iterator):
+#                if (count < self._nsent):
+#                    tmp[item] = self._buffer[item]
+#                    to_be_del.append(item)
+#            for item in to_be_del:
+#                del self._buffer[item]
+#            return tmp
 
