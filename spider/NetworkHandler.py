@@ -8,10 +8,12 @@ import threading
 import pickle
 from unbuffered_output import uopen #unbuffered open
 
-socket.setdefaulttimeout(60)
-
 class NetworkHandler:
-    """ handle network """
+    """ handle network
+        NOTE that we haven't set any timeout value for any connection here,
+        because NetworkHandler is used by crawler side and doing so can avoid
+        crawler side closing the connection before Manager side have time to
+        send any data"""
 
     log = uopen("NetworkHandler.log", "w+")
     log_lock = threading.Lock() #lock to access log
@@ -27,7 +29,7 @@ class NetworkHandler:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.connect((self._ip, self._port))
             #与worker建立连接，表示要发送数据
-            if (self.establish_context(sock, b"SEND")):
+            if self.establish_context(sock, b"SEND"):
                 sock.sendall(data)
                 sock.close()
             else:
@@ -43,9 +45,9 @@ class NetworkHandler:
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.connect((self._ip, self._port))
-            if (self.establish_context(sock, b"REQUEST")):
+            if self.establish_context(sock, b"REQUEST"):
                 links_raw = []
-                while (True):
+                while True:
                     try:
                         data = sock.recv(512)
                         if not data:  #finish getting data
@@ -53,7 +55,7 @@ class NetworkHandler:
                         links_raw.append(data)
                     except Exception:
                         #既然中断了连接，数据肯定不完整
-                        raise 
+                        raise
                 links = b''.join(links_raw)
                 print("NetworkHandler get data:[%s]\n" % str(links))
                 sock.close()
@@ -63,7 +65,7 @@ class NetworkHandler:
                     NetworkHandler.log.write(("Cannot establish valid connection(REQUEST)"
                         "with worker/server[%s,%s]\n") % (str(self._ip), str(self._port)))
                 raise Exception(("Cannot establish valid connection(REQUEST) with"
-                    "worker/server[%s,%s]") % (str(self._ip),str(self._port)))
+                    "worker/server[%s,%s]") % (str(self._ip), str(self._port)))
         except Exception:
             raise
 

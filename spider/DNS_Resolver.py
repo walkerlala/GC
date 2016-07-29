@@ -13,8 +13,6 @@ import mmap
 from NetworkHandler import NetworkHandler
 from unbuffered_output import uopen
 
-socket.setdefaulttimeout(60)
-
 class DNSResolver:
     """ Class to help resolve url's IP address """
     #mmap_file = uopen("/tmp/DNSResolver.mmap","w+")
@@ -71,7 +69,10 @@ class DNSResolver:
         return resolved_links
 
     def get_resolved_url_packet(self):
-        """ just return what it's """
+        """ used to get url=>resolved_url from Manager side.
+            Note that we don't have to set any timeout here,
+            because, after all, crawler have to get some links from
+            Manager side before it can continue"""
         if len(self._buffer) < self._buffer_size_threshold:
             try:
                 links = self.links_requester.request()

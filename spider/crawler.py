@@ -34,7 +34,7 @@ def get_web(resolved_url): #*args would refer to (log, lock)
                #'Accept-Encoding':"",  Requests would handle encoding and decoding for us
               }
     try:
-        response = requests.get(resolved_url, headers=headers, timeout=60)
+        response = requests.get(resolved_url, headers=headers, timeout=120)
         print("Get response[%d]" % response.status_code)
         with lock:
             log.write("Response[%d] of url:[%s]\n" % (response.status_code, resolved_url))
@@ -61,6 +61,7 @@ class Crawler(object):
         #self.thread_pool = ThreadPool(self.thread_pool_size)
         self._result_dict = {}
         self.dns_resolver = DNSResolver(left_ip, left_port)
+        #TODO: we may set timeout for result_sender(but not for links_requester)
         self.result_sender = NetworkHandler(left_ip, left_port)
 
     def run(self):
