@@ -1,0 +1,211 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta http-equiv="X-UA-Compatible" content="IE=7" />
+<title>华南理工大学</title>
+<link href="newcss/main.css" rel="stylesheet" type="text/css" />
+<script src="js/chrome.js" type="text/javascript"></script>
+<script language="JavaScript" type="text/javascript" src="tools/js/xpath-min.js"></script>
+<script language="JavaScript" type="text/javascript" src="tools/js/SpryData-min.js"></script>
+<script language="JavaScript" type="text/javascript" src="tools/js/SpryPagedView-min.js"></script>
+<script language="JavaScript" type="text/javascript">
+var ds0 = new Spry.Data.XMLDataSet("/publish2/news/bigpic/index.xml", "/channel/item[position() < 2]");//首页大图xml路
+var ds1 = new Spry.Data.XMLDataSet("/publish2/news/AcademicEvents/index.xml", "/channel/item[position() < 5]");//学术报告修改xml路径
+var ds2 = new Spry.Data.XMLDataSet("/publish2/news/hot/index.xml", "/channel/item[position() < 4]");//热点关注修改xml路径
+var ds3 = new Spry.Data.XMLDataSet("/publish2/news/notice/index.xml", "/channel/item[position() < 9]");//重要通告修改xml路径
+
+
+</script>
+
+</head>
+
+<body>
+
+<div class="main">
+  <div class="top">
+    <div class="logo"><a href="index.html" title="华南理工大学 首页"><img src="newimages/logo.jpg" /></a></div>
+	<div class="topLink">
+	  <a class="msm" target="_blank" href="http://webmail.scut.edu.cn/scutmail/">电子邮件</a><i>|</i>
+      <a  target="_blank" href="http://portal.scut.edu.cn/cmstar/index.portal">办公门户</a><i>|</i>
+       <a target="_blank" href="http://web.scut.edu.cn/service/">网络服务</a><i>|</i>
+	  <a target="_blank" href="http://www2.scut.edu.cn/scutnxq/">大学城校区</a><i>|</i>
+	  <a target="_blank" href="http://202.38.194.72:8080/xzxx">校长信箱</a><i>|</i>
+	  <a target="_blank" href="http://en.scut.edu.cn/">ENGLISH</a><i>|</i> <a target="_blank" href="http://www.scut.edu.cn/index2011.html">旧版网站</a>
+	</div>
+  </div>
+  
+  <!-- menu -->
+<div class="chromestyleMenu">
+
+<div class="chromestyle" id="chromemenu">
+<ul>
+<li><a href="webpage/about.htm" rel="dropmenu1">学校概况</a></li>
+<li><a href="webpage/jg.htm">机构设置</a></li>
+<li><a href="webpage/group.htm" rel="dropmenu2">人才培养</a></li>
+<li><a href="webpage/yj.htm" rel="dropmenu3">科学研究</a></li>	
+<li><a href="#" rel="dropmenu4">招生就业</a></li>
+<li><a target="_blank" href="http://www.lib.scut.edu.cn/">图书馆</a></li>
+<li><a href="webpage/st.htm" rel="dropmenu5">校园生活</a></li>
+<li><a target="_blank" href="http://www2.scut.edu.cn/s/135/t/141/p/1/c/4121/list.htm">人才招聘</a></li>
+<li><a target="_blank" href="#"  rel="dropmenu6">合作交流</a></li>
+</ul>
+</div>
+                                                   
+<div id="dropmenu1" class="dropmenudiv">
+<a href="webpage/about.htm">学校简介</a>
+<a href="webpage/history.htm" >学校沿革</a>
+<a href="webpage/logo.htm">学校标识</a>
+<a href="webpage/leaders.htm">学校领导</a>
+<a href="webpage/view.htm">校园风光</a>
+<a target="_blank" href="http://map.scut.edu.cn/">校园地图</a>
+<a target="_blank" href="http://www.scut.edu.cn/xsg">校史钩沉</a>
+<a href="http://www2.scut.edu.cn/scutnxq/" target="_blank">大学城校区</a>
+</div>
+
+<div id="dropmenu2" class="dropmenudiv">
+<a href="webpage/group.htm">师资队伍</a>
+<a target="_blank" href="http://www.scut.edu.cn/academic/">本科生教育</a>
+<a target="_blank" href="http://www.scut.edu.cn/graduate/">研究生教育</a>
+<a target="_blank" href="http://www.scut.edu.cn/sie/">留学生教育</a>
+<a target="_blank" href="http://www.scutde.net">继续教育</a>
+<a target="_blank" href="http://www.scut.edu.cn/course/">精品课程</a>
+<a target="_blank" href="http://www.scut.edu.cn/e-online/">教学在线</a>
+<a target="_blank" href="http://222.16.42.161/resource/">教学资源库</a></div>
+
+<div id="dropmenu3" class="dropmenudiv">
+<a href="webpage/yj.htm">研究机构</a>
+<a href="webpage/magazine.htm">学术期刊</a>
+<a target="_blank" href="http://www2.scut.edu.cn/science/">自然科学</a>
+<a target="_blank" href="http://www.scut.edu.cn/socialsci/">社会科学</a>
+<a target="_blank" href="http://www.nspscut.com.cn/">产学研合作</a></div>
+
+<div id="dropmenu4" class="dropmenudiv">
+<a target="_blank" href="http://www.scut.edu.cn/admission/">本科生招生</a>
+<a target="_blank" href="http://www.scut.edu.cn/admission/">研究生招生</a>
+
+<a target="_blank" href="http://www.scutde.net/zs/">继续教育</a>
+<a target="_blank" href="http://www.scut.edu.cn/bys/">就业服务</a></div>
+
+<div id="dropmenu5" class="dropmenudiv">
+<a href="webpage/st.htm">学生组织</a>
+<a target="_blank" href="http://www.scut.edu.cn/qingfengyuan/index.htm">廉洁校园</a>
+<a target="_blank" href="http://www2.scut.edu.cn/s/78/t/151/p/1/c/4329/list.htm">网上党校</a>
+<a target="_blank" href="http://bbs.scut.edu.cn/">木棉BBS</a>
+<a target="_blank" href="http://xinhai.100steps.net/">心理咨询</a>
+<a target="_blank" href="http://web.scut.edu.cn/service/">校园网服务</a>
+<a target="_blank" href="http://www.scut.edu.cn/security/">校园安全</a>
+<a target="_blank" href="http://www.scut.edu.cn/houqin">后勤服务</a>
+</div>
+<div id="dropmenu6" class="dropmenudiv"> <a href="http://www2.scut.edu.cn/s/56/t/402/main.htm" target="_blank" >出访事务</a> <a target="_blank" href="http://www2.scut.edu.cn/s/56/t/108/main.htm" >外专和引智</a> <a target="_blank" href="http://www2.scut.edu.cn/s/56/t/386/p/13/list.htm">国际交流</a> <a target="_blank" href="http://www2.scut.edu.cn/s/56/t/354/main.htm">对港澳台交流</a> <a target="_blank" href="http://www2.scut.edu.cn/s/56/t/341/main.jspy">海外学习</a> <a target="_blank" href="http://www.scut.edu.cn/sie/">留学华工</a> <a target="_blank" href="http://www2.scut.edu.cn/s/100/t/97/main.htm">中外合作办学机构和项目</a> <a target="_blank" href="http://www2.scut.edu.cn/s/56/t/113/main.htm">国际联合研究中心</a> </div>
+<script type="text/javascript">
+cssdropdown.startchrome("chromemenu")
+</script>
+</div>
+
+
+
+  
+  
+  <div class="bn" spry:region="ds0" spry:repeatchildren="ds0">
+  <a href="webpage/spotlights.htm?={link}"><img src="{coverage}" title="{title}" alt="{title}" /></a>
+   
+	<div class="bnImg"><img src="newimages/gs.gif" /></div>
+	
+  </div>
+  <div class="content">
+    <div class="indexLeft">
+	  <!--学校要闻 -->
+	  <div class="schoolNews">
+	    <div class="tt"><b>学校要闻</b><span><a href="http://news.scut.edu.cn/">进入新闻网&raquo;</a></span></div>
+			<div class="infoBox">
+		 <iframe src="http://news.scut.edu.cn/s/22/t/11/main.htm" frameborder="0" scrolling="no" width="308" height="186"></iframe>
+         
+
+		</div>
+	  </div>
+	  <!--学校要闻 end -->
+	  <!--重要通告 -->
+	  <div class="note">
+	    <div class="tt"><b>教学科研通知</b><span><a href="webpage/notice.htm" >更多</a></span></div>
+		<div class="infoBox">
+		  <iframe src="http://www.scut.edu.cn/publishHtml/JiaoXueKeYan.html" frameborder="0" scrolling="no" width="308" height="190"  id="mtbd" name="mtbd"></iframe>
+		</div>
+	  </div>
+	  <!--重要通告 end -->
+	  <!--校园快讯 -->
+	  <div class="kxNews">
+	     <div class="tt"><b>校园快讯</b><span><a href="http://news.scut.edu.cn/s/22/t/7/p/69/c/8/list.htm">更多</a></span></div>
+		 <div class="infoBox">
+		 <iframe src="http://news.scut.edu.cn/s/22/t/12/main.htm" frameborder="0" scrolling="no" width="308" height="175"  id="xykx" name="xykx"></iframe>
+
+
+		</div>
+	  </div>
+	  <!--校园快讯 end -->
+	  <!--媒体报道 -->
+	  <div class="kxNews" style="float:right;">
+	     <div class="tt"><b>媒体报道</b><span><a href="http://news.scut.edu.cn/s/22/t/3/p/61/list.htm">更多</a></span></div>
+		 <div class="infoBox">
+		 <iframe src="http://news.scut.edu.cn/s/22/t/13/main.htm" frameborder="0" scrolling="no" width="308" height="175"  id="mtbd" name="mtbd"></iframe>
+
+		</div>
+	  </div>
+	  <!--媒体报道 end -->
+	</div>
+	<div class="indexRight">
+	  <!--热点关注 -->
+	  <div class="rightNews">
+	    <div class="tt"><b>热点关注</b><span><a href="webpage/hotNews.htm">更多</a></span></div>
+		 <div class="infoBox">
+		  <ul class="newsList1" spry:region="ds2" spry:repeatchildren="ds2">
+		  <li><A href="{link}" target="_blank" title="{title}">{title} </A></li>
+		  </ul>
+           	</div>
+	  </div>
+	  <div class="rightNews">
+	    <div class="tt"><b>学术预告</b><span><a href="webpage/yg.htm">更多</a></span></div>
+		 <div class="infoBox" style="height:110px;">
+		  <iframe src="http://www.scut.edu.cn/publishHtml/XueShu.html" frameborder="0" scrolling="no" width="295" height="105"  id="gjzx" name="gjzx"></iframe>
+		</div>
+	  </div>
+	  <div class="rightNews" style="height:210px;margin-top:3px;">
+      <img src="newimages/linkimg_03.jpg" width="307" height="210" border="0" usemap="#Map" />
+      <map name="Map" id="Map">
+        <area shape="rect" coords="3,6,149,102" href="http://news.scut.edu.cn/s/22/t/3/p/32/list.htm" target="_blank" />
+        <area shape="rect" coords="153,5,303,103" href="http://news.scut.edu.cn/s/22/t/3/p/68/c/44/list.htm" />
+        <area shape="rect" coords="4,107,148,204" href="http://news.scut.edu.cn/s/22/t/3/p/68/c/68/list.htm" target="_blank" />
+        <area shape="rect" coords="152,107,306,205" href="http://votetest.100steps.net/Vote/spiritualvote" target="_blank" />
+      </map>
+	  </div>
+ 	</div>
+  </div>
+  <div class="iconLine"> <a href="http://www2.scut.edu.cn/xxgk/index.html" target="_blank"><img src="newimages/a1.jpg" width="114" height="44" hspace="0" /></a><a href="webpage/service.htm" target="_blank"><img src="newimages/a2.jpg" width="138" height="44" hspace="0" /></a><a href="http://www.scut.edu.cn/qingfengyuan/" target="_blank"><img src="newimages/a3.jpg" width="132" height="44" hspace="0" /></a><img src="newimages/a4.jpg" width="132" height="44" hspace="0" border="0" usemap="#Map2" />
+    <map name="Map2" id="Map2">
+      <area shape="rect" coords="39,5,80,27" href="http://www.alumni-scut.org/" target="_blank" />
+      <area shape="rect" coords="84,5,131,27" href="http://www.scutef.org/" target="_blank" />
+    </map>
+    <a href="http://xb.scut.edu.cn/" target="_blank"><img src="newimages/a5.jpg" width="139" height="44" hspace="0" /></a><a href="http://202.38.194.47/" target="_blank"><img src="newimages/a6.jpg" width="132" height="44" hspace="0" /></a>
+      <a href="http://www.gcu.edu.cn/" target="_blank"><img src="newimages/a7.jpg" width="153" height="44" /></a></div>
+ 
+  <div class="footer">
+<div style="float:left;width:850px;"><i>2012 &copy; 华南理工大学 版权所有 <a href="http://www.miibeian.gov.cn/" target="_blank">粤ICP备05084312号-1</a> 地址：广州市天河区五山路381号/广州市番禺区广州大学城邮政编码：510641/510006</i><br />
+<i>查号台：87110228-3<a href="http://web.scut.edu.cn/s/39/t/13/p/1/c/562/list.htm" target="_blank"> 网上查号</a>招生咨询：87110737网站设计、管理：党委宣传部网站制作：<a href="http://web.scut.edu.cn/" target="_blank">信息网络工程研究中心 </a><a href="http://mapp.scut.edu.cn/" target="_blank">移动站</a></i><a href="http://www.scut.edu.cn/vpn/" target="_blank">VPN</a></div>
+</i>
+
+  </div>
+ 
+</div>
+
+ <script type="text/javascript" src="http://js.tongji.linezing.com/3374518/tongji.js"></script><noscript><a href="http://www.linezing.com"><img src="http://img.tongji.linezing.com/3374518/tongji.gif"/></a></noscript>
+<script type="text/javascript">
+var _bdhmProtocol = (("https:" == document.location.protocol) ? " https://" : " http://");
+document.write(unescape("%3Cscript src='" + _bdhmProtocol + "hm.baidu.com/h.js%3Fce91121d28cbfbc58e35d31da236d644' type='text/javascript'%3E%3C/script%3E"));
+</script>
+<script type="text/javascript">
+var _bdhmProtocol = (("https:" == document.location.protocol) ? " https://" : " http://");
+document.write(unescape("%3Cscript src='" + _bdhmProtocol + "hm.baidu.com/h.js%3Fcad45348d1fdf49a7a9a1f8b99526616' type='text/javascript'%3E%3C/script%3E"));
+</script>
+
+</body>
+</html>
