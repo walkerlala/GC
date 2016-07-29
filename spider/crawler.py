@@ -72,7 +72,7 @@ class Crawler(object):
                 url_dict = self.dns_resolver.get_resolved_url_packet()
             except Exception as e:
                 log.write("Cannot get resolved url packet. Exception:[%s]\n" % str(e))
-                time.sleep(0.5)
+                time.sleep(0.5) #wait a little bit to see if thing would get better
                 continue
             if not url_dict:
                 print("Empty urls from dns_resolver. Crawler exit")
@@ -108,7 +108,8 @@ class Crawler(object):
                     try:
                         outer_links, inner_links = self.extract_link(origin, resp.text)
                     except Exception as e:
-                        log.write("Exception when extract_links:[%s], url:[%s]\n" % (str(e), origin))
+                        log.write(
+                            "Exception when extract_links:[%s], url:[%s]\n" % (str(e), origin))
                         continue
                     outer_links = set(outer_links)  #outer_links not handled yet
                     inner_links = set(inner_links)

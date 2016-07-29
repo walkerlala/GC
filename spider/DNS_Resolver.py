@@ -47,12 +47,11 @@ class DNSResolver:
         resolved_links = []
         with DNSResolver.cache_lock:
             for link in links:
-                #TODO: doubt this method
                 protocol, rest = urllib.parse.splittype(link)
                 host, url_suffix = urllib.parse.splithost(rest)
                 resolved = None
                 for dictionary in DNSResolver.DNS_cache:
-                    if (host == list(dictionary.keys())[0]):
+                    if host == list(dictionary.keys())[0]:
                         ip_address = list(dictionary.values())[0]
                         resolved = protocol + "://" + ip_address + url_suffix
                         break
@@ -77,20 +76,24 @@ class DNSResolver:
             try:
                 links = self.links_requester.request()
                 if not links:
+                    #return whatever in self._buffer
                     tmp = self._buffer
                     self._buffer = {}
                     return tmp
                 else:
+                    #resolved_links = self.resolve_url(links)
+                    #self._buffer.update(zip(links, resolved_links))
                     self._buffer.update(zip(links, links))
-                    if (self._nsent > len(self._buffer)):
-                        self._nsent = len(self._buffer)
+                    #make sure that we don't exceed the limit
+                    nsent = (self._nsent if self._nsent <= len(self._buffer)
+                                            else len(self._buffer))
                     tmp = {}
-                    iterator = iter(self._buffer)
+                    pairs = list(self._buffer.items())
                     to_be_del = []
-                    for count, item in enumerate(iterator):
-                        if (count < self._nsent):
-                            tmp[item] = self._buffer[item]
-                            to_be_del.append(item)
+                    for index in range(nsent):
+                        url, resolved = pairs[index]
+                        tmp[url] = resolved
+                        to_be_del.append(url)
                     for item in to_be_del:
                         del self._buffer[item]
                     return tmp
@@ -98,67 +101,16 @@ class DNSResolver:
                 raise
         else:
             #make sure that we don't exceed the limit
-            if (self._nsent > len(self._buffer)):
-                self._nsent = len(self._buffer)
+            nsent = (self._nsent if self._nsent <= len(self._buffer)
+                                    else len(self._buffer))
             #we have enough links, so just return
             tmp = {}
-            iterator = iter(self._buffer)
+            pairs = list(self._buffer.items())
             to_be_del = []
-            for count, item in enumerate(iterator):
-                if (count < self._nsent):
-                    tmp[item] = self._buffer[item]
-                    to_be_del.append(item)
+            for index in range(nsent):
+                url, resolved = pairs[index]
+                tmp[url] = resolved
+                to_be_del.append(url)
             for item in to_be_del:
                 del self._buffer[item]
             return tmp
-
-#    def get_resolved_url_packet(self):
-#        """ get a bunch of `url=>resolved_url` """
-#        if len(self._buffer) < self._buffer_size_threshold:
-#            try:
-#                links = self.links_requester.request()
-#                #if manager no longer have any links,
-#                #then we should use what we left. If no
-#                #more links can be given out, then we should
-#                #notify the caller by returning a empty dict
-#                if not links:
-#                    #if we still have some, just return it.
-#                    #Otherwise, we would return a empty dict
-#                    tmp = self._buffer
-#                    self._buffer = {}
-#                    return tmp
-#                else:
-#                    resolved_links = self.resolve_url(links)
-#                    self._buffer.update(zip(links, resolved_links))
-#                    #make sure that we don't exceed the limit
-#                    if (self._nsent > len(self._buffer)):
-#                        self._nsent = len(self._buffer)
-#                    #return self._nsent links
-#                    tmp = {}
-#                    iterator = iter(self._buffer)
-#                    to_be_del = []
-#                    for count, item in enumerate(iterator):
-#                        if (count < self._nsent):
-#                            tmp[item] = self._buffer[item]
-#                            to_be_del.append(item)
-#                    for item in to_be_del:
-#                        del self._buffer[item]
-#                    return tmp
-#            except Exception:
-#                raise
-#        else:
-#            #make sure that we don't exceed the limit
-#            if (self._nsent > len(self._buffer)):
-#                self._nsent = len(self._buffer)
-#            #we have enough links, so just return
-#            tmp = {}
-#            iterator = iter(self._buffer)
-#            to_be_del = []
-#            for count, item in enumerate(iterator):
-#                if (count < self._nsent):
-#                    tmp[item] = self._buffer[item]
-#                    to_be_del.append(item)
-#            for item in to_be_del:
-#                del self._buffer[item]
-#            return tmp
-

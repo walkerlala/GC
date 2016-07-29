@@ -72,19 +72,27 @@ class Manager:
                                                  start_fresh=True)
         self.bf_lock = threading.Lock() #lock to access bloom_filter
         self.pr_lock = threading.Lock() #lock to access priority queue
-        self.prio_que = PriQueue()
-        self.prio_que.get_links_from_disk()
-        self.thread_list = []
-        self.thread_num = thread_num
-        self._log = uopen("Manager.log", "w+")
-        self.log_lock = threading.Lock()
-        self._links_track = uopen("how-many-links.links", "w+")
-        self._links_lock = threading.Lock()
+        self.prio_que = PriQueue()          #Manager's priority queue
+        self.prio_que.get_links_from_disk() #initially get links from disk
+        self.thread_list = []        #list of threads in Manager
+        self.thread_num = thread_num #how many thread we should start
+        self._log = uopen("Manager.log", "w+") #log file
+        self.log_lock = threading.Lock()       #lock to access log file
+        self._links_track = uopen("how-many-links.links", "w+") #record all the links
+                                                                #we have crawled
+        self._links_lock = threading.Lock()                     #lock
+        self._nsent = 20 #how many links we send to crawler per request
         #MACRO,represent whether crawler want to send back links or get links from here
         self.SEND = 1
         self.REQUEST = 0
 
     def handle_connection(self, conn):
+        """ handle connection with some crawler """
+
+        #set timeout for this connection, so failure of one crawler would
+        #not waste resource of the Manager
+        conn.settimeout(60)
+
         method = None
         data_buf = []
         try:
@@ -100,39 +108,38 @@ class Manager:
                 #result dict is a dict: { link: {set of links or 'FAIL'}
                 data = b''.join(data_buf)
                 _result_dict = pickle.loads(data)
+                crawled_links = []
                 for key, value in _result_dict.items():
-                    #if fail to crawl the original link, then just discard it
-                    #we should distinguish 'FAIL' and 'NO-SUB-LINKS'
+                    #没爬成功的，就是'FAIL'。我们对一个链接只爬一次，无论成功与否
                     if (value == 'FAIL'):
                         with self.bf_lock:
                             #加入bloom_filter之中，否则这个链接会被重爬
                             self.bloom_filter.add(key)
                     else:
-                        tmp = []
                         with self.bf_lock:
-                            tmp.append(key)
+                            crawled_links.append(key)
                             self.bloom_filter.add(key)
                             for sub_link in value:
-                                tmp.append(sub_link)
                                 if sub_link not in self.bloom_filter:
                                     with self.pr_lock:
                                         self.prio_que.append(sub_link)
-                        #write all the link to `self._links_track`
-                        with self._links_lock:
-                            for link in tmp:
-                                self._links_track.write(str(link))
+                #write all the link to `self._links_track`
+                with self._links_lock:
+                    for link in crawled_links:
+                        self._links_track.write(str(link) + "\n")
             elif (method == self.REQUEST):
                 conn.sendall(b'OK')
                 """假如prioQueue里面没有了就返回一个空的lists"""
                 data = None
                 links_buffer = []
-                if(len(self.prio_que)):
-                    try:
-                        with self.pr_lock:
-                            for _ in range(5):  #一次发送多少条链接？
-                                links_buffer.append(self.prio_que.get())
+                with self.pr_lock:
+                    nsent = self._nsent if self._nsent <= len(self.prio_que) else len(self.prio_que)
+                    try: #需要捕捉异常。万一内存爆了然后self.prio_que放不下东西了呢？
+                        for _ in range(nsent):  #一次发送多少条链接？
+                            links_buffer.append(self.prio_que.get())
                     except Exception as e:
-                        raise Exception("Exception happen when trying to get links from PriQueue")
+                        raise Exception("Exception:[%s] geting links from PriQueue" % str(e))
+                #如果prio_que里面没有链接了，我们发送过去的就是一个空的list了
                 data = pickle.dumps(links_buffer)
                 try:
                     print("Sending data...")
@@ -167,6 +174,7 @@ class Manager:
             raise
 
     def run(self):
+        """ start Manager """
         self._log.write("Manager start running at: %s\n" %
                               datetime.datetime.now().strftime("%B %d, %Y"))
         while(True):
