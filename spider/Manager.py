@@ -32,7 +32,7 @@ class PriQueue:
 
     def get_links_from_disk(self):
         """ This is test method. Use this to get links from disk,
-            as we have not implement the prio method """
+            as we have not implemented the prio method """
         with open(self.links_file, "r") as f:
             for line in f:
                 self.links.append(line.strip())
@@ -61,27 +61,37 @@ class Manager:
         self.port = port
         self.buff_size = buff_size
         self.listen_num = listen_num
+
+        #socket initialization
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.bind((self.ip, self.port))
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.listen(self.listen_num)
+
         #bloom_filter里面存放已经爬过的链接(或许没有爬成功)
         self.bloom_filter = Bloom_filter.Bloom_filter(10000,
-                                                 0.001,  #error rate
-                                                 filename=("/tmp/blmftr_tmp",-1),
-                                                 start_fresh=True)
+                                         0.001,  #error rate
+                                         filename=("/tmp/blmftr_tmp",-1),
+                                         start_fresh=True)
         self.bf_lock = threading.Lock() #lock to access bloom_filter
+
         self.pr_lock = threading.Lock() #lock to access priority queue
         self.prio_que = PriQueue()          #Manager's priority queue
         self.prio_que.get_links_from_disk() #initially get links from disk
+        self.prio_ful_threshold = 100000 # 100bytes/links x 100000 ~ 10M
+
         self.thread_list = []        #list of threads in Manager
         self.thread_num = thread_num #how many thread we should start
+
         self._log = uopen("Manager.log", "w+") #log file
         self.log_lock = threading.Lock()       #lock to access log file
-        self._links_track = uopen("how-many-links.links", "w+") #record all the links
-                                                                #we have crawled
-        self._links_lock = threading.Lock()                     #lock
+
+        #record all the links we have crawled
+        self._links_track = uopen("how-many-links.links", "w+")
+
+        self._links_lock = threading.Lock()   #lock
         self._nsent = 20 #how many links we send to crawler per request
+
         #MACRO,represent whether crawler want to send back links or get links from here
         self.SEND = 1
         self.REQUEST = 0
@@ -110,7 +120,7 @@ class Manager:
                 _result_dict = pickle.loads(data)
                 crawled_links = []
                 for key, value in _result_dict.items():
-                    #没爬成功的，就是'FAIL'。我们对一个链接只爬一次，无论成功与否
+                    #没爬成功的，就是'FAIL'(我们对一个链接只爬一次，无论成功与否)
                     if (value == 'FAIL'):
                         with self.bf_lock:
                             #加入bloom_filter之中，否则这个链接会被重爬
@@ -119,17 +129,19 @@ class Manager:
                         with self.bf_lock:
                             crawled_links.append(key)
                             self.bloom_filter.add(key)
-                            for sub_link in value:
-                                if sub_link not in self.bloom_filter:
-                                    with self.pr_lock:
-                                        self.prio_que.append(sub_link)
+                            # limit links count
+                            if len(self.prio_que) < self.prio_ful_threshold:
+                                for sub_link in value:
+                                    if sub_link not in self.bloom_filter:
+                                        with self.pr_lock:
+                                            self.prio_que.append(sub_link)
                 #write all the link to `self._links_track`
                 with self._links_lock:
                     for link in crawled_links:
                         self._links_track.write(str(link) + "\n")
             elif (method == self.REQUEST):
                 conn.sendall(b'OK')
-                """假如prioQueue里面没有了就返回一个空的lists"""
+                """ 假如prioQueue里面没有了就返回一个空的lists """
                 data = None
                 links_buffer = []
                 with self.pr_lock:
