@@ -10,6 +10,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 import pickle
 import time
+import datetime
 import urllib.parse
 from DNS_Resolver import DNSResolver
 import requests
@@ -17,7 +18,7 @@ from lxml import etree
 from NetworkHandler import NetworkHandler
 from unbuffered_output import uopen
 
-left_ip = '127.0.0.1'
+left_ip = '119.29.166.19'
 left_port = 5005    #port have to be of type int, not str. f**k
 
 log = uopen("crawler.log", "w+")
@@ -76,8 +77,9 @@ class Crawler(object):
                 time.sleep(0.5) #wait a little bit to see if thing would get better
                 continue
             if not url_dict:
-                print("Empty urls from dns_resolver. Crawler exit")
-                log.write("Empty urls from dns_resolver. Crawler exit\n")
+                t = str(datetime.datetime.now())
+                print("[%s]Empty urls from dns_resolver. Crawler exit\n" % t)
+                log.write("[%s]Empty urls from dns_resolver. Crawler exit\n" % t)
                 break
 
             #将解析成功的和未成功的分开来

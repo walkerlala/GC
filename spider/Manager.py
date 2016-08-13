@@ -78,7 +78,7 @@ class Manager:
         self.pr_lock = threading.Lock() #lock to access priority queue
         self.prio_que = PriQueue()          #Manager's priority queue
         self.prio_que.get_links_from_disk() #initially get links from disk
-        self.prio_ful_threshold = 100000 # 100bytes/links x 100000 ~ 10M
+        self.prio_ful_threshold = 1000000 # 100bytes/links x 1000000 ~ 100M
 
         self.thread_list = []        #list of threads in Manager
         self.thread_num = thread_num #how many thread we should start
@@ -154,7 +154,7 @@ class Manager:
                 #如果prio_que里面没有链接了，我们发送过去的就是一个空的list了
                 data = pickle.dumps(links_buffer)
                 try:
-                    print("Sending data...")
+                    print("Sending data...\n")
                     conn.sendall(data)
                     print("Finish sending data.\n")
                 except Exception as e:
@@ -165,10 +165,11 @@ class Manager:
             #不能再向上抛异常了，因为这是多线程模型。
             #异常应该在本函数内处理
             with self.log_lock:
-                self._log.write("Exception:[%s]\n" % str(e))
-            print("Exception[%s] in Manager.handle_connection()\n" % str(e))
+                t = str(datetime.datetime.now())
+                self._log.write("[%s]::Exception:[%s]\n" % (t,str(e)))
+            print("Fatal exception[%s] in Manager.handle_connection()\n" % str(e))
         finally:
-            print("close connection")
+            print("One thread close connection\n")
             conn.close()
 
     def get_conn_type(self, conn):
@@ -203,6 +204,6 @@ class Manager:
             t.start()
 
 if __name__ == "__main__":
-    manager = Manager("127.0.0.1", 5005)
+    manager = Manager("0.0.0.0", 5005)
     manager.run()
 
