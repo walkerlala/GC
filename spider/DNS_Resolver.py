@@ -1,6 +1,19 @@
 #!/usr/bin/python3 -u
 #coding:utf-8
 
+"""
+    CAVEAT HERE !
+    we don't need a crawler level DNS-Resolver anymore !!!
+    To dns-caching, use a program called `dnsmasq'. On Debian/ubuntu, just
+    install `dnsmasq' and `network-manager'. dnsmasq would change
+    /etc/resolv.conf and set "nameserver 127.0.1.1"(or "nameserver
+    127.0.0.1") and then it would listen on that loop interface. When your
+    application make a DNS query, it would query the server at 127.0.1.1(as
+    indicated by /etc/resolv.conf), which would by passed to `dnsmasq', which
+    would do all the necessary dns query and caching...
+
+"""
+
 """ DNSResolver is reponsible for resolving url=>ip.
     Also, it's responsible for reqeusting links from Manager """
 

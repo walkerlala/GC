@@ -188,8 +188,8 @@ class Manager:
 
     def run(self):
         """ start Manager """
-        self._log.write("Manager start running at: %s\n" %
-                              datetime.datetime.now().strftime("%B %d, %Y"))
+        self._log.write("Manager start running at: [%s]\n" %
+                              str(datetime.datetime.now()))
         while(True):
             #only want a fix number of thread in this program
             if (len(self.thread_list) > self.thread_num):
