@@ -43,8 +43,8 @@ class ElementNode:
     def print_self(self):
         if self._tag is not None:
             print(self._level * " " + "<" + self._tag + ">", end=" ")
-        # if self._attributes:
-            # print(self._attributes, end="  ")
+        if self._attributes:
+            print(self._attributes, end="  ")
         if self._text is not None:
             print("[text]:" + self._text.strip(), end="  ")
         # print("[length]:", self._length, end=" ")
@@ -65,5 +65,5 @@ def dom_to_sst(html):
     root.print_self()
 
 
-test_html = read_from_file("test1.txt")
+test_html = read_from_file("test4.txt")
 dom_to_sst(test_html)

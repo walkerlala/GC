@@ -7,17 +7,18 @@
         <meta name="Description" content="友情链接查询" />
     </head>
     <body>
-        <h1 class="heading">Top News</h1>
-        <p style="font-size: 200%">World News only on this page</p>
-        <p>... and this is a parsed fragment ...</p>
-        <a href="http://www.4399.com/" target="_blank">4399小游戏</a>
-        <a href="http://www.91wan.com/" target="_blank">91wan游戏</a>
-        <h1 class="heading">Top News
+        <div class="heading">Top News
+            <p style="font-size: 200%">World News only on this page</p>
+            <p>... and this is a parsed fragment ...</p>
+            <a href="http://www.4399.com/" target="_blank">4399小游戏</a>
+            <a href="http://www.91wan.com/" target="_blank">91wan游戏</a>
+        </div>
+        <div class="heading">Top News
             <p style="font-size: 200%">World News only on this page</p>
             <p>... and this is a parsed fragment ...
                 <a href="http://www.4399.com/" target="_blank">4399小游戏</a>
                 <a href="http://www.91wan.com/" target="_blank">91wan游戏</a>
             </p>
-        </h1>
+        </div>
     </body>
 </html>
