@@ -78,7 +78,7 @@ class Manager:
         self.pr_lock = threading.Lock() #lock to access priority queue
         self.prio_que = PriQueue()          #Manager's priority queue
         self.prio_que.get_links_from_disk() #initially get links from disk
-        self.prio_ful_threshold = 1000000 # 100bytes/links x 1000000 ~ 100M
+        self.prio_ful_threshold = 5000000 # 100bytes/links x 5000000 ~ 500M
 
         self.thread_list = []        #list of threads in Manager
         self.thread_num = thread_num #how many thread we should start
