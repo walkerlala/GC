@@ -1,0 +1,24 @@
+<html>
+    <head>
+        <meta name="content-type" content="text/html; charset=utf-8" />
+        <title>友情链接查询 - 站长工具</title>
+        <!-- uRj0Ak8VLEPhjWhg3m9z4EjXJwc -->
+        <meta name="Keywords" content="友情链接查询" />
+        <meta name="Description" content="友情链接查询" />
+    </head>
+    <body>
+        <div class="heading">Top News
+            <p style="font-size: 200%">World News only on this page</p>
+            <p>... and this is a parsed fragment ...</p>
+            <a href="http://www.4399.com/" target="_blank">4399小游戏</a>
+            <a href="http://www.91wan.com/" target="_blank">91wan游戏</a>
+        </div>
+        <div class="heading">Top News
+            <p style="font-size: 200%">World News only on this page</p>
+            <p>... and this is a parsed fragment ...
+                <a href="http://www.4399.com/" target="_blank">4399小游戏</a>
+                <a href="http://www.91wan.com/" target="_blank">91wan游戏</a>
+            </p>
+        </div>
+    </body>
+</html>
