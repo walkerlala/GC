@@ -11,7 +11,7 @@ import pickle
 import threading
 import random
 import Bloom_filter
-from unbuffered_output import uopen
+#from unbuffered_output import uopen
 
 #this would cause server timeout
 #socket.setdefaulttimeout(60)
@@ -56,7 +56,7 @@ class PriQueue:
 class Manager:
     """Core Manager """
 
-    def __init__(self, ip, port, buff_size=1024, listen_num=5, thread_num=10):
+    def __init__(self, ip, port, buff_size=1024, listen_num=5, thread_num=100):
         self.ip = ip
         self.port = port
         self.buff_size = buff_size
@@ -78,19 +78,19 @@ class Manager:
         self.pr_lock = threading.Lock() #lock to access priority queue
         self.prio_que = PriQueue()          #Manager's priority queue
         self.prio_que.get_links_from_disk() #initially get links from disk
-        self.prio_ful_threshold = 5000000 # 100bytes/links x 5000000 ~ 500M
+        self.prio_ful_threshold = 10000000 # 100bytes/links x 5000000 ~ 1G
 
         self.thread_list = []        #list of threads in Manager
         self.thread_num = thread_num #how many thread we should start
 
-        self._log = uopen("Manager.log", "w+") #log file
+        self._log = open("Manager.log", "w+") #log file
         self.log_lock = threading.Lock()       #lock to access log file
 
         #record all the links we have crawled
-        self._links_track = uopen("how-many-links.links", "w+")
+        self._links_track = open("how-many-links.links", "w+")
 
         self._links_lock = threading.Lock()   #lock
-        self._nsent = 20 #how many links we send to crawler per request
+        self._nsent = 100 #how many links we send to crawler per request
 
         #MACRO,represent whether crawler want to send back links or get links from here
         self.SEND = 1
@@ -154,9 +154,9 @@ class Manager:
                 #如果prio_que里面没有链接了，我们发送过去的就是一个空的list了
                 data = pickle.dumps(links_buffer)
                 try:
-                    print("Sending data...\n")
+                    #print("Sending data...\n")
                     conn.sendall(data)
-                    print("Finish sending data.\n")
+                    #print("Finish sending data.\n")
                 except Exception as e:
                     raise
             else:
@@ -169,7 +169,7 @@ class Manager:
                 self._log.write("[%s]::Exception:[%s]\n" % (t,str(e)))
             print("Fatal exception[%s] in Manager.handle_connection()\n" % str(e))
         finally:
-            print("One thread close connection\n")
+            #print("One thread close connection\n")
             conn.close()
 
     def get_conn_type(self, conn):
@@ -197,7 +197,7 @@ class Manager:
                     thread.join()
                 self.thread_list = []
             conn, addr = self.sock.accept()
-            print("Connection established: %s\n" % str(addr))
+            #print("Connection established: %s\n" % str(addr))
             self._log.write("Connection established: %s\n" % str(addr))
             t = threading.Thread(target=self.handle_connection, args=(conn,))
             self.thread_list.append(t)

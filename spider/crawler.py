@@ -16,12 +16,12 @@ from DNS_Resolver import DNSResolver
 import requests
 from lxml import etree
 from NetworkHandler import NetworkHandler
-from unbuffered_output import uopen
+#from unbuffered_output import uopen
 
 left_ip = '119.29.166.19'
 left_port = 5005    #port have to be of type int, not str. f**k
 
-log = uopen("crawler.log", "w+")
+log = open("crawler.log", "w+")
 lock = threading.Lock()  #lock to log file
 
 def get_web(resolved_url): #*args would refer to (log, lock)
@@ -37,8 +37,8 @@ def get_web(resolved_url): #*args would refer to (log, lock)
     try:
         response = requests.get(resolved_url, headers=headers, timeout=120)
         print("Get response[%d]" % response.status_code)
-        with lock:
-            log.write("Response[%d] of url:[%s]\n" % (response.status_code, resolved_url))
+        #with lock:
+        #    log.write("Response[%d] of url:[%s]\n" % (response.status_code, resolved_url))
         #check whether we get a plain text response
         #note that key in `response.headers` is case insensitive
         if 'content-type' in response.headers:
@@ -95,7 +95,7 @@ class Crawler(object):
             self._result_dict.update(fail_resolved_dict)
 
             #处理解析成功的
-            log.write("Get resolved_dict:[%s]\n" % str(resolved_dict))
+            #log.write("Get resolved_dict:[%s]\n" % str(resolved_dict))
             with ThreadPoolExecutor(1000) as pool:
                 responses = pool.map(get_web, resolved_dict.values())
 
@@ -120,10 +120,10 @@ class Crawler(object):
 
             #将东西返回给左边
             #对self._result_dict做serialization，以便可以在TCP通道中传输
-            print("sending back things to the left...")
+            #print("sending back things to the left...")
             #just a test, to see if we get some thing useful
-            with lock:
-                log.write("self._result_dict:[%s]\n" % str(self._result_dict))
+            #with lock:
+            #    log.write("self._result_dict:[%s]\n" % str(self._result_dict))
 
             data = pickle.dumps(self._result_dict)
             try:
