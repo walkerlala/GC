@@ -96,6 +96,9 @@ class Manager:
         self.SEND = 1
         self.REQUEST = 0
 
+        self.total_links_threshold_nr = 100000
+        self.total_links_crawled_nr=0
+
     def handle_connection(self, conn):
         """ handle connection with some crawler """
 
@@ -137,8 +140,11 @@ class Manager:
                                             self.prio_que.append(sub_link)
                 #write all the link to `self._links_track`
                 with self._links_lock:
+                    self.total_links_crawled_nr = self.total_links_crawled_nr + len(crawled_links)
                     for link in crawled_links:
                         self._links_track.write(str(link) + "\n")
+                    if self.total_links_crawled_nr > self.total_links_threshold_nr:
+                        self.prio_que = []
             elif (method == self.REQUEST):
                 conn.sendall(b'OK')
                 """ 假如prioQueue里面没有了就返回一个空的lists """
