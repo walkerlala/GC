@@ -56,7 +56,7 @@ class PriQueue:
 class Manager:
     """Core Manager """
 
-    def __init__(self, ip, port, buff_size=1024, listen_num=5, thread_num=30):
+    def __init__(self, ip, port, buff_size=1024, listen_num=5, thread_num=10):
         self.ip = ip
         self.port = port
         self.buff_size = buff_size
@@ -197,16 +197,16 @@ class Manager:
         self._log.write("Manager start running at: [%s]\n" %
                               str(datetime.datetime.now()))
         while(True):
-            #only want a fix number of thread in this program
-            #if (len(self.thread_list) > self.thread_num):
-            #    for thread in self.thread_list:
-            #        thread.join()
-            #    self.thread_list = []
+            only want a fix number of thread in this program
+            if (len(self.thread_list) > self.thread_num):
+                for thread in self.thread_list:
+                    thread.join()
+                self.thread_list = []
             conn, addr = self.sock.accept()
             #print("Connection established: %s\n" % str(addr))
             self._log.write("Connection established: %s\n" % str(addr))
             t = threading.Thread(target=self.handle_connection, args=(conn,))
-            t.daemon = True
+            #t.daemon = True
             self.thread_list.append(t)
             t.start()
 
