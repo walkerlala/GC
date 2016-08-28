@@ -56,7 +56,7 @@ class PriQueue:
 class Manager:
     """Core Manager """
 
-    def __init__(self, ip, port, buff_size=1024, listen_num=5, thread_num=15):
+    def __init__(self, ip, port, buff_size=1024, listen_num=5, thread_num=30):
         self.ip = ip
         self.port = port
         self.buff_size = buff_size
