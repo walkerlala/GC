@@ -198,14 +198,15 @@ class Manager:
                               str(datetime.datetime.now()))
         while(True):
             #only want a fix number of thread in this program
-            if (len(self.thread_list) > self.thread_num):
-                for thread in self.thread_list:
-                    thread.join()
-                self.thread_list = []
+            #if (len(self.thread_list) > self.thread_num):
+            #    for thread in self.thread_list:
+            #        thread.join()
+            #    self.thread_list = []
             conn, addr = self.sock.accept()
             #print("Connection established: %s\n" % str(addr))
             self._log.write("Connection established: %s\n" % str(addr))
             t = threading.Thread(target=self.handle_connection, args=(conn,))
+            t.daemon = True
             self.thread_list.append(t)
             t.start()
 
