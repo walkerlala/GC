@@ -20,6 +20,7 @@ from NetworkHandler import NetworkHandler
 import readability
 #from unbuffered_output import uopen
 
+#left_ip = '123.207.119.151'
 left_ip = '127.0.0.1'
 left_port = 5005    #port have to be of type int, not str.
 
@@ -123,6 +124,10 @@ class Crawler(object):
         # FIXME this scattered initialization make me feel bad
         if not os.path.exists(content_path):
             os.mkdir(content_path)
+        else:
+            list(map(os.unlink, (os.path.join(content_path, f) for f in os.listdir(content_path))))
+        if not os.path.exists(log_path):
+            os.mkdir(log_path)
         else:
             list(map(os.unlink, (os.path.join(content_path, f) for f in os.listdir(content_path))))
 
@@ -235,7 +240,8 @@ class Crawler(object):
         title = doc.title()
         summary_in_html = doc.get_clean_html()
         file = open(content_path + str(self.html_count),"w")
-        file.write(title + "\n")
+        file.write(url.strip() + "\n")
+        file.write(title.strip() + "\n")
         file.write(summary_in_html)
         self.html_count = self.html_count + 1
         file.close()
