@@ -1,0 +1,102 @@
+### RECORD START
+
+## Time 1
+ * number-of-links: 453178
+ * time:
+      2016.08.13 20:30 -- 2016.08.14 12:00
+      15.5 hours ( about 245 links crawled per minutes per crawler)
+ * Manager: 1, 1 core(2295MHz), 64bit, 1 G mem, 1 Mbps net, virtual machine
+ * crawler: 2, 1 core(2295MHz), 64bit, 1 G mem, 1 Mbps net, virtual machine
+ * starting links count: 38 (probably too few)
+ * DNS cache: no
+ * Manager thread number: 10 (not fully utilized. untested)
+ * crawler thread pool size: 1000 (not fully utilized. untested) 
+ * _nsent: 20 (how many links transfer between Manager and crawler per request)
+ * pri_queue_buffer: 1000000 links x 100bytes/link ~ 100M
+ * content_extractor: no
+ * links-priority-schedule: incomplete
+ * asynchronize crawler: no
+ * too many log: yes (too many log may cause program to be too I/O-bound)
+ # some specail note:
+   * Manager.py get connected 68930 times by crawlers.
+   *   (21063 times from 119.29.2.216, 47867 times from 119.29.226.204)
+   * At the end of crawling, somebody wrongly connect to Manager.py a few times
+   * crawler(119.29.2.216)   140170 times of crawling, 138448 times of 200
+   * crawler(119.29.226.204) 318937 times of crawling, 314921 times of 200
+ 
+# Time 2
+ * number-of-links: 449543
+ * time:
+      2016.08.17 20:30 -- 2016.08.18 11:00
+      14.5 hours ( about 258 links crawled per minutes per crawler)
+ * Manager: 1, 1 core(2295MHz), 64bit, 1 G mem, 1 Mbps net, virtual machine
+ * crawler: 2, 1 core(2295MHz), 64bit, 1 G mem, 1 Mbps net, virtual machine
+ * starting links count: 38 (probably too few)
+ * DNS cache: yes
+ * Manager thread number: 10 (not fully utilized. untested)
+ * crawler thread pool size: 1000 (not fully utilized. untested) 
+ * _nsent: 20 (how many links transfer between Manager and crawler per request)
+ * pri_queue_buffer: 1000000 links x 100bytes/link ~ 100M
+ * content_extractor: no
+ * links-priority-schedule: incomplete
+ * asynchronize crawler: no
+ * too many log: yes (too many log may cause program to be too I/O-bound)
+ # some specail note:
+   * Manager.py get connected 68561 times by crawlers.
+   *   (26201 times from 119.29.2.216, 42291 times from 119.29.226.204)
+   * At the end of crawling, somebody wrongly connect to Manager.py a few times
+   * crawler(119.29.2.216)   173969 times of crawling, 138448 times of 200
+   * crawler(119.29.226.204) 281210 times of crawling, 314921 times of 200
+ 
+#Time 3
+ * number-of-links: 3954684
+ * time:
+      2016.08.25 18:00 -- 2016.08.26 12:30
+      18.5 hours ( about 396 links crawled per minutes per crawler)
+ * Manager: 1, 1 core(2295MHz), 64bit, 2 G mem, 2 Mbps net, virtual machine
+ * crawler: 9, 1 core(2295MHz), 64bit, 1 G mem, 2 Mbps net, virtual machine
+ * starting links count: 183 (probably too few)
+ * DNS cache: yes
+ * Manager thread number: 10
+ * crawler thread pool size: 1000 (not fully utilized. untested) 
+ * _nsent: 20 (how many links transfer between Manager and crawler per request)
+ * pri_queue_buffer: 5000000 links x 100bytes/link ~ 500M
+ * content_extractor: no
+ * links-priority-schedule: incomplete
+ * asynchronize crawler: no
+ * too many log: yes (too many log may cause program to be too I/O-bound)
+ # some specail note:
+   * Manager.py get connected 609354 times by crawlers.
+     * 58065 times from 123.207.146.185 
+     * 76515 times from 119.29.201.13
+     * 43422 times from 119.29.106.30
+     * 75770 times from 119.29.161.184
+     * 55507 times from 123.206.202.62
+     * 77231 times from 119.29.105.137
+     * 75633 times from 119.29.0.30
+     * 78800 times from 119.29.226.204
+     * 68397 times from 119.29.2.216
+
+# record end
+
+
+
+
+# record start
+1000,000 links, 1 crawler, 8 hours, 
+    Manager info:
+      core: 1
+      memory: 2 GB
+      cpu_family: QEMU Virtual CPU version 1.2.0
+      cache_size: 4096 KB
+      CPU MHz:  4395
+      Net bandwidth: 2M
+
+   Crawler info：
+     core: 1
+     memory: 2 GB
+     cpu_family: QEMU Virtual CPU version 1.2.0
+     cache_size: 4096 KB
+     CPU MHz: 4395
+     Net bandwidth: 2M
+

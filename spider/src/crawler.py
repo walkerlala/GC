@@ -7,32 +7,39 @@
 
 import re
 import threading
+import os
+import shutil
 from concurrent.futures import ThreadPoolExecutor
 import pickle
 import time
 import datetime
 import urllib.parse
-from DNS_Resolver import DNSResolver
 import requests
 from lxml import etree
 from NetworkHandler import NetworkHandler
+import readability
 #from unbuffered_output import uopen
 
-left_ip = '119.29.166.19'
-left_port = 5005    #port have to be of type int, not str. f**k
+left_ip = '127.0.0.1'
+left_port = 5005    #port have to be of type int, not str.
 
-log = open("crawler.log", "w+")
+# FIXME this relative path is tricky, try to use abs path next
+root_path = "../"
+log_path = "../log/"
+content_path = "../dump/"
+
+log = open(log_path + "crawler.log", "w+")
 lock = threading.Lock()  #lock to log file
 
 def get_web(resolved_url): #*args would refer to (log, lock)
-    """This function used for grab a web information and return a Response object."""
+    """used to grab a web information and return a Response object."""
 
-    #fake as YoudaoBot. Can also fake as GoogleBot, or Baidu Spider,
+    #fake as 'Baidu Spider'. Can also fake as GoogleBot, or YoudaoBot,
     #but this maybe easily detect due to ip-mismatch
-    #NOTE: According to RFC 7230, HTTP header names are case-insensitive
-    headers = {'User-Agent': 'YoudaoBot',
+    #NOTE: According to RFC 7230, HTTP header names are case-INsensitive
+    headers = {'User-Agent': 'Baidu Spider',
                'Accept':'text/plain, text/html', #want only text
-               #'Accept-Encoding':"",  Requests would handle encoding and decoding for us
+               #' Requests would handle encoding and decoding for us
               }
     try:
         response = requests.get(resolved_url, headers=headers, timeout=120)
@@ -50,88 +57,117 @@ def get_web(resolved_url): #*args would refer to (log, lock)
             return None
     except Exception as e:
         with lock: #避免race condition
-            print("Fail to fetch resolved_url. exception: %s" % str(e))
-            log.write("Fail to fetch resolved_url. Exception: %s\n" % str(e))
+            log.write("Fail to fetch page. Exception: %s\n" % str(e))
         return None
 
 class Crawler(object):
-    """ The crawler. Multiple thread would be started in method run() """
+    """ The crawler.
+        Multiple threads would be started in method run() """
 
     def __init__(self):
-        self.thread_pool_size = 4
-        #self.thread_pool = ThreadPool(self.thread_pool_size)
+        """ Initialization """
+
+        # FIXME should use a global conf file for configuration
+        self.thread_pool_size = 1000
         self._result_dict = {}
-        self.dns_resolver = DNSResolver(left_ip, left_port)
-        #TODO: we may set timeout for result_sender(but not for links_requester)
+        #FIXME: we may set timeout for result_sender(but not for links_requester)
         self.result_sender = NetworkHandler(left_ip, left_port)
+        self.links_requester = NetworkHandler(left_ip, left_port)
+        self._buffer = []
+        self._buffer_size_threshold = 20
+        #how many links we should return when the caller #call self.get_links()
+        self._nsent = self._buffer_size_threshold
+
+        self.html_count = 0 # how many html page have been downloaded
+
+    def get_links(self):
+        """ used to get urls from manager.
+        Note that we don't have to set any timeount here,
+        because, after all, crawler have to get some links from
+        manager side before it can continue """
+
+        # if there are not enough links in the buffer
+        if len(self._buffer) < self._buffer_size_threshold:
+            try:
+                links = self.links_requester.request()
+                if not links:
+                    #return whatever in self._buffer
+                    tmp = self._buffer
+                    self._buffer = []
+                    return tmp
+                else:
+                    self._buffer.extend(links)
+                    #make sure that we don't exceed the limit
+                    nsent = (self._nsent if self._nsent <= len(self._buffer)
+                                         else len(self._buffer))
+                    tmp = []
+                    for _ in range(nsent):
+                        tmp.append(self._buffer.pop())
+                    return tmp
+            except Exception:
+                raise
+        else:
+            #make sure that we don't exceed the limit
+            nsent = (self._nsent if self._nsent <= len(self._buffer)
+                                 else len(self._buffer))
+            #we have enough links, so just return
+            tmp = []
+            for _ in range(nsent):
+                tmp.append(self._buffer.pop())
+            return tmp
 
     def run(self):
         """ main routine of crawler class
-            @url_dict: a dict, used to hold the raw urls get from the left.  """
+            @urls: used to hold the raw urls got from the left.  """
+
+        # FIXME this scattered initialization make me feel bad
+        if not os.path.exists(content_path):
+            os.mkdir(content_path)
+        else:
+            list(map(os.unlink, (os.path.join(content_path, f) for f in os.listdir(content_path))))
+
         while (True):
             try:
-                #a dict of format { url1 => resolved_url, url2 => resolved_url, ...}
-                url_dict = self.dns_resolver.get_resolved_url_packet()
+                urls = self.get_links()
             except Exception as e:
-                log.write("Cannot get resolved url packet. Exception:[%s]\n" % str(e))
+                log.write("Cannot get urls. Exception:[%s]\n" % str(e))
                 time.sleep(0.5) #wait a little bit to see if thing would get better
                 continue
-            if not url_dict:
+            if not urls:
                 t = str(datetime.datetime.now())
-                print("[%s]Empty urls from dns_resolver. Crawler exit\n" % t)
                 log.write("[%s]Empty urls from dns_resolver. Crawler exit\n" % t)
                 break
 
-            #将解析成功的和未成功的分开来
-            resolved_dict = {}
-            fail_resolved_dict = {}
-            for key, value in url_dict.items():
-                if value:
-                    resolved_dict[key] = value
-                else:
-                    fail_resolved_dict[key] = 'FAIL'
-
-            #未解析成功的就直接是FAIL了
-            self._result_dict.update(fail_resolved_dict)
-
-            #处理解析成功的
-            #log.write("Get resolved_dict:[%s]\n" % str(resolved_dict))
-            with ThreadPoolExecutor(1000) as pool:
-                responses = pool.map(get_web, resolved_dict.values())
+            # 爬取链接
+            with ThreadPoolExecutor(self.thread_pool_size) as pool:
+                responses = pool.map(get_web, urls)
 
             #开始处理response，将得到的子内链与源链接组合在一起然后返回
-            original_urls = list(resolved_dict.keys())
             for index, resp in enumerate(responses):
-                origin = original_urls[index]
+                origin = urls[index]
                 if not resp:
                     self._result_dict[origin] = "FAIL"
                 else:
-                    #Note that we only accept a response of type 'text/html' here
-                    #Note that resp.text return unicode string
                     try:
+                        # Note that we resp is already of type 'text/html'
+                        # Note that resp.text return unicode string
                         outer_links, inner_links = self.extract_link(origin, resp.text)
-                    except Exception as e:
-                        log.write(
-                            "Exception when extract_links:[%s], url:[%s]\n" % (str(e), origin))
-                        continue
-                    outer_links = set(outer_links)  #outer_links not handled yet
-                    inner_links = set(inner_links)
-                    self._result_dict[origin] = inner_links
+                        outer_links = set(outer_links) #outer_links not handled yet
+                        inner_links = set(inner_links)
+                        self._result_dict[origin] = inner_links
 
-            #将东西返回给左边
-            #对self._result_dict做serialization，以便可以在TCP通道中传输
-            #print("sending back things to the left...")
-            #just a test, to see if we get some thing useful
-            #with lock:
-            #    log.write("self._result_dict:[%s]\n" % str(self._result_dict))
+                        self.dump_content(origin, resp.text)
+
+                    except Exception as e:
+                        log.write("Exception when extract_links:[%s], url:[%s]\n" % (str(e), origin))
+                        continue
 
             data = pickle.dumps(self._result_dict)
             try:
                 self.result_sender.send(data)
                 print("successfully sent back to the left")
             except Exception as e:
-                print("exception happen when sent things back to the left:[%s]" % str(e))
-                log.write(("Fail sending to Manager:[%s]\n"
+                log.write(("Fail sending to manager:[%s]\n"
                                     "unsent links:[%s]\n") % (str(e), str(self._result_dict)))
             finally:
                 self._result_dict = {}
@@ -191,6 +227,18 @@ class Crawler(object):
         protocal, rest = urllib.parse.splittype(url)
         host, url_suffix = urllib.parse.splithost(rest)
         return (protocal, host)
+
+    def dump_content(self, url, text):
+        # text is in unicode
+        doc = readability.Document(text)
+        # doc is in utf-8
+        title = doc.title()
+        summary_in_html = doc.get_clean_html()
+        file = open(content_path + str(self.html_count),"w")
+        file.write(title + "\n")
+        file.write(summary_in_html)
+        self.html_count = self.html_count + 1
+        file.close()
 
 if __name__ == "__main__":
     crawler = Crawler()

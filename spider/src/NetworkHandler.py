@@ -6,7 +6,9 @@
 import socket
 import threading
 import pickle
-from unbuffered_output import uopen #unbuffered open
+#from unbuffered_output import uopen #unbuffered open
+
+log_path = "../log/"
 
 class NetworkHandler:
     """ handle network
@@ -15,7 +17,7 @@ class NetworkHandler:
         crawler side closing the connection before Manager side have time to
         send any data"""
 
-    log = uopen("NetworkHandler.log", "w+")
+    log = open(log_path + "NetworkHandler.log", "w+")
     log_lock = threading.Lock() #lock to access log
 
     def __init__(self, ip, port):
@@ -57,7 +59,8 @@ class NetworkHandler:
                         #既然中断了连接，数据肯定不完整
                         raise
                 links = b''.join(links_raw)
-                print("NetworkHandler get data:[%s]\n" % str(links))
+                with NetworkHandler.log_lock:
+                    NetworkHandler.log.write("NetworkHandler get data:[%s]\n" % str(links))
                 sock.close()
                 return pickle.loads(links)
             else:
