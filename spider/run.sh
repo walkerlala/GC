@@ -6,9 +6,9 @@ usage() {
     echo "or"
     echo "    ./run.sh crawler"
     echo "or"
-    echo "    sudo ./run.sh stop (to terminate manager/crawler)"
+    echo "    sudo ./run.sh stop (to terminate managers/crawlers)"
     echo "or"
-    echo "    sudo ./run.sh terminate (to terminate manager/craler)"
+    echo "    sudo ./run.sh terminate (to terminate managers/crawlers)"
 }
 
 # FIXME relative path is tricky
@@ -24,7 +24,7 @@ crawler() {
 }
 
 terminate() {
-    kill -KILL $(pidof /usr/bin/python3)
+    kill -KILL $(ps aux|perl -ne 'print "$1 " if /.*?(\d+).*python3 -u \.\/(manager|crawler)\.py/')
 }
 
 # creating log dir

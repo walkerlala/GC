@@ -17,7 +17,7 @@ import urllib.parse
 import requests
 from lxml import etree
 from NetworkHandler import NetworkHandler
-import readability
+import readability.readability
 #from unbuffered_output import uopen
 
 #left_ip = '123.207.119.151'
