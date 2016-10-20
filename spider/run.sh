@@ -9,22 +9,54 @@ usage() {
     echo "    sudo ./run.sh stop (to terminate managers/crawlers)"
     echo "or"
     echo "    sudo ./run.sh terminate (to terminate managers/crawlers)"
+    echo "or"
+    echo "    ./run.sh show (to show current process(manager/crawler) info"
 }
 
-# FIXME relative path is tricky
-
 manager() {
-    cd ./src
-    ./manager.py > ../log/manager.out 2> ../log/manager.err &
+    echo -n "Running manager..."
+    ./src/manager.py > ./log/manager.out 2> ./log/manager.err &
+    if [[ "$?" == 0 ]]
+    then
+        echo "OK"
+    else
+        echo "FAIL"
+    fi
 }
 
 crawler() {
-    cd ./src
-    ./crawler.py > ../log/crawler.out 2> ../log/crawler.err &
+    echo -n "Running crawler..."
+    ./src/crawler.py > ./log/crawler.out 2> ./log/crawler.err &
+    if [[ "$?" == 0 ]]
+    then
+        echo "OK"
+    else
+        echo "FAIL"
+    fi
 }
 
 terminate() {
-    kill -KILL $(ps aux|perl -ne 'print "$1 " if /.*?(\d+).*python3 -u \.\/(manager|crawler)\.py/')
+    echo -n "Killing process..."
+    kill -KILL $(ps aux|perl -ne 'print "$1 " if /.*?(\d+).*python3 \.\/src\/(manager|crawler)\.py/')
+    if [[ "$?" == 0 ]]
+    then
+        echo "OK"
+    else
+        echo "FAIL"
+    fi
+}
+
+show() {
+    echo ""
+    man=$(ps aux|perl -ne 'print "$_" if /python3 \.\/src\/manager\.py/')
+    cra=$(ps aux|perl -ne 'print "$_" if /python3 \.\/src\/crawler\.py/')
+    if [[ -z $man && -z $cra ]]; then
+        echo "No manager/crawler is running in background."
+    else
+        echo $man
+        echo $cra
+    fi
+    echo ""
 }
 
 # creating log dir
@@ -45,6 +77,9 @@ then
 elif [[ "$1" == "terminate" ]]
 then
     terminate
+elif [[ "$1" == "show" ]]
+then
+    show
 else
     usage
 fi
