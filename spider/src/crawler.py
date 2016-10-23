@@ -6,31 +6,33 @@
 # pylint: disable=superfluous-parens, invalid-name, broad-except
 
 import re
-import os
-import threading
 from concurrent.futures import ThreadPoolExecutor
 import pickle
 import time
-import datetime
 import urllib.parse
+import traceback
 import requests
 from lxml import etree
 from NetworkHandler import NetworkHandler
 import readability.readability
 from unbuffered_output import uopen
 from ConfReader import ConfReader
+from Logger import Logger
+from DBUtil import DBHandler
 
-#default configurations
+#default configurations for crawler
 default_conf = {
     "manager_ip":"127.0.0.1",
     "manager_port":5005,
-    "log_path":"log",
     "content_path":"dump",
     "buffer_size_threshold":50,
     "concurrent_crawl_NR":50,
     "buffer_output":"yes",
     "thread_pool_size":1000,
     "crawling_timeout":120,
+    "DB_url":"127.0.0.1",
+    "DB_user":"root",
+    "DB_passwd":"root324",
     }
 
 class Crawler(object):
@@ -40,41 +42,42 @@ class Crawler(object):
     def __init__(self):
         """ Initialization """
 
-        self.conf = ConfReader("crawler.conf")
+        self.conf = ConfReader("crawler.conf", default_conf)
+        self.log = Logger()
+        self.db = None
 
-        tmp = self.conf.get("thread_pool_size")
-        self.thread_pool_size = tmp if tmp else default_conf["thread_pool_size"]
-
-        tmp = self.conf.get("manager_ip")
-        self.left_ip = tmp if tmp else default_conf["manager_ip"]
-
-        tmp = self.conf.get("manager_port")
-        self.left_port = tmp if tmp else default_conf["manager_port"]
-
-        tmp = self.conf.get("buffer_size_threshold")
-        self._buffer_size_threshold = tmp if tmp else default_conf["buffer_size_threshold"]
-
+        self.thread_pool_size = self.conf.get("thread_pool_size")
+        self.left_ip = self.conf.get("manager_ip")
+        self.left_port = self.conf.get("manager_port")
+        self._buffer_size_threshold = self.conf.get("buffer_size_threshold")
         #how many links we should return when the caller call self.get_links()
-        tmp = self.conf.get("concurrent_crawl_NR")
-        self._crawl_NR = tmp if tmp else default_conf["concurrent_crawl_NR"]
+        self._crawl_NR = self.conf.get("concurrent_crawl_NR")
+        self.my_open = uopen if self.conf.get("buffer_output") == "no" else open
+        self.content_path = self.conf.get("content_path")
+        self.crawling_timeout = self.conf.get("crawling_timeout")
 
-        tmp = self.conf.get("buffer_output")
-        buffer_output = tmp if tmp else default_conf["buffer_output"]
-        if buffer_output == "no":
-            self.my_open = uopen
-        else:
-            self.my_open = open
+        DB_url = self.conf.get("DB_url")
+        DB_user = self.conf.get("DB_user")
+        DB_passwd = self.conf.get("DB_passwd")
+        self.db = DBHandler("crawlerDB", DB_user, DB_passwd, DB_url)
+        self.db.connect()
+        self.db.update("CREATE TABLE IF NOT EXISTS `pages_table` ("
+                       " `page_id` int(20) NOT NULL AUTO_INCREMENT,"
+                       " `page_url` varchar(400) NOT NULL,"
+                       " `domain_name` varchar(100) NOT NULL,"
+                       #" `sublinks` text,"
+                       " `title` varchar(255),"
+                       #" `normal_content` text,"
+                       #" `emphasized_content` text,"
+                       " `keywords` varchar(255),"
+                       " `description` varchar(511),"
+                       " `text` longtext,"
+                       " `PR_score` double default 0.0,"
+                       " `ad_NR` int default 0,"
+                       #" `classify_attribute` ...
+                       " PRIMARY KEY (`page_id`)"
+                       ") ENGINE=InnoDB" )
 
-        tmp = self.conf.get("content_path")
-        self.content_path = tmp if tmp else default_conf["content_path"]
-        tmp = self.conf.get("log_path")
-        self.log_path = tmp if tmp else default_conf["log_path"]
-        self.log = self.my_open(self.log_path + "/crawler.log", "w+")
-        #lock for log
-        self.lock = threading.Lock()
-
-        tmp = self.conf.get("crawling_timeout")
-        self.crawling_timeout = tmp if tmp else default_conf["crawling_timeout"]
 
         # hold all the links to be sent back to manager
         self._result_dict = {}
@@ -84,22 +87,14 @@ class Crawler(object):
         self.links_requester = NetworkHandler(self.left_ip, self.left_port)
         self.focusing = True  # whether or not the crawling should do focus-crawling
 
-        self.html_count = 0 # how many html page have been downloaded
-
-        # FIXME crawler should remove its own file, not manager's, in case the
-        # two are on the same machine
-        # make sure all those directories exist and clear
-        if not os.path.exists(self.content_path):
-            os.mkdir(self.content_path)
-        else:
-            list(map(os.unlink,
-                     (os.path.join(self.content_path, f)
-                         for f in os.listdir(self.content_path) if f.find("crawler"))))
-        if not os.path.exists(self.log_path):
-            os.mkdir(self.log_path)
 
     def get_links(self):
         """ used to get urls from manager.
+        we use a buffer, so that we can get 50 links from manager,
+        and then return 10 links with call to self.get_links() one by one.
+        To do this, for example, user can adjust the 'concurrent_crawl_NR'
+        setting in 'conf/crawler.conf' to 10 and 'links_to_crawler_NR' to 50.
+
         Note that we don't have to set any timeount here,
         because, after all, crawler have to get some links from
         manager side before it can continue """
@@ -107,6 +102,9 @@ class Crawler(object):
         # if there are not enough links in the buffer
         if len(self._buffer) < self._buffer_size_threshold:
             try:
+                # manager would return links together with a
+                # message(self.focusing), which tell the crawler whether it
+                # should still be focused-crawling or not
                 (self.focusing, links) = self.links_requester.request()
                 if not links:
                     #return whatever in self._buffer
@@ -146,9 +144,7 @@ class Crawler(object):
                   }
         try:
             response = requests.get(resolved_url, headers=headers, timeout=self.crawling_timeout)
-            print("Get response[%d]: [%s]" % (response.status_code, resolved_url))
-            with self.lock:
-                self.log.write("Get response[%d], [%s]\n" % (response.status_code, resolved_url))
+            self.log.info("Get response[%d]: [%s]" % (response.status_code, resolved_url))
             #check whether we get a plain text response
             #note that key in `response.headers` is case insensitive
             if 'content-type' in response.headers:
@@ -159,8 +155,7 @@ class Crawler(object):
             else:
                 return None
         except Exception as e:
-            with self.lock: #避免race condition
-                self.log.write("Fail to fetch page. Exception: %s\n" % str(e))
+            self.log.info("Fail to fetch page. Exception: %s, url:[%s]" % (str(e), resolved_url))
             return None
 
     def run(self):
@@ -171,12 +166,12 @@ class Crawler(object):
             try:
                 urls = self.get_links()
             except Exception as e:
-                self.log.write("Cannot get urls. Exception:[%s]\n" % str(e))
-                time.sleep(0.5) #wait a little bit to see if thing would get better
+                self.log.info("Cannot get urls. crawler sleep for 10 seconds."
+                        "Exception:[%s]\n" % str(e))
+                time.sleep(10) #wait a little bit to see if thing would get better
                 continue
             if not urls:
-                t = str(datetime.datetime.now())
-                self.log.write("[%s]Empty urls from dns_resolver. Crawler exit\n" % t)
+                self.log.info("Empty urls from dns_resolver. Crawler exit")
                 break
 
             # 爬取链接
@@ -193,28 +188,35 @@ class Crawler(object):
                         # Note that we resp is already of type 'text/html'
                         # Note that resp.text return unicode string
                         outer_links, inner_links = self.extract_link(origin, resp.text)
-                        outer_links = set(outer_links) #outer_links not handled yet
-                        inner_links = set(inner_links)
-                        if self.focusing:
-                            self.log.write("crawler is FOCUSING now.\n")
-                            self._result_dict[origin] = inner_links
-                        else:
-                            self._result_dict[origin] = inner_links.union(outer_links)
-
-                        self.dump_content(origin, resp.text)
-
                     except Exception as e:
-                        self.log.write("Exception when extract_links:[%s],"
+                        self.log.info("Exception when extract_links:[%s],"
                                 "url:[%s]\n" % (str(e), origin))
                         continue
+                    self.log.info("Finished extract_links()")
+                    outer_links = set(outer_links) #outer_links not handled yet
+                    inner_links = set(inner_links)
+                    if self.focusing:
+                        self.log.info("crawler is FOCUSING now.\n")
+                        self._result_dict[origin] = inner_links
+                    else:
+                        self._result_dict[origin] = inner_links.union(outer_links)
+
+                    # resp.content return 'bytes' object
+                    try:
+                        self.dump_content(resp)
+                    except Exception as e:
+                        self.log.info("Exception when dump_content():[%s],"
+                                "url:[%s]" % (str(e), origin))
+                        traceback.print_exc()
+                        continue
+                    self.log.info("Finished dump_content()")
 
             data = pickle.dumps(self._result_dict)
             try:
                 self.result_sender.send(data)
-                print("successfully sent back to the left")
-                self.log.write("successfully sent back to the left\n")
+                self.log.info("successfully sent back to the left\n")
             except Exception as e:
-                self.log.write(("Fail sending to manager:[%s]\n"
+                self.log.info(("Fail sending to manager:[%s]\n"
                                     "unsent links:[%s]\n") % (str(e), str(self._result_dict)))
             finally:
                 self._result_dict = {}
@@ -275,18 +277,44 @@ class Crawler(object):
         domain, url_suffix = urllib.parse.splithost(rest)
         return (protocal, domain)
 
-    def dump_content(self, url, text):
-        # text is in unicode
-        doc = readability.Document(text)
-        # doc is in utf-8
-        title = doc.title()
-        summary_in_html = doc.get_clean_html()
-        file = self.my_open(self.content_path + "/" + str(self.html_count), "w")
-        file.write(url.strip() + "\n")
-        file.write(title.strip() + "\n")
-        file.write(summary_in_html)
-        self.html_count = self.html_count + 1
-        file.close()
+    def dump_content(self, resp):
+        """ requests cannot detect web page encoding automatically(FUCK!).
+            response.encoding is from the html reponse header. If we want to
+            convert all the content we want to utf8, we have to use `get_encodings_from_content;' """
+        # resp.text is in unicode(type 'str')
+        try:
+            real_encoding = requests.utils.get_encodings_from_content(resp.text)[0]
+            text = resp.content.decode(real_encoding).encode('utf-8')
+        except Exception:
+            text = resp.content
+
+        def extract_kw_desc(text):
+            kws = re.findall(rb'<meta\s+name\s{0,2}=\s{0,2}"keywords"\s+content\s{0,2}=\s{0,2}"(.{0,255}?)" />',
+                    text, re.DOTALL)
+            descs = re.findall(rb'<meta\s+name\s{0,2}=\s{0,2}"description"\s+content\s{0,2}=\s{0,2}"(.{0,511}?)" >',
+                    text, re.DOTALL)
+            kw = b""
+            if kws:
+                kw = kws[0]
+            desc = b""
+            if descs:
+                desc = descs[0]
+            return kw, desc
+
+        page_url = bytes(resp.url, 'utf-8')
+        _, domain_name = self.get_protocal_domain(resp.url)
+        domain_name = bytes(domain_name, 'utf-8')
+        titles = re.findall(rb'<title>(.*?)</title>', text)
+        title = b""
+        if titles:
+            title = titles[0]
+        kw, desc = extract_kw_desc(text)
+
+        self.db.update("INSERT INTO pages_table (`page_url`, `domain_name`,"
+                "`title`, `text`, `keywords`, `description`) "
+                "VALUES (%s, %s, %s, %s, %s, %s);",
+                (page_url, domain_name, title, text, kw, desc))
+
 
 if __name__ == "__main__":
     crawler = Crawler()

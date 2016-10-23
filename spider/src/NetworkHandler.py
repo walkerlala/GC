@@ -8,10 +8,10 @@ import threading
 import pickle
 from ConfReader import ConfReader
 from unbuffered_output import uopen
+from Logger import Logger
 
 default_conf = {
     "buffer_output":"yes",
-    "log_path":"log",
     }
 
 class NetworkHandler:
@@ -24,18 +24,11 @@ class NetworkHandler:
     def __init__(self, ip, port):
         """ Initialization """
         # just use crawler's conf, since NetworkHandler is primarily used by crawler
-        self.conf = ConfReader("crawler.conf")
-        tmp = self.conf.get("unbuffered_output")
-        buffer_output = tmp if tmp else default_conf["buffer_output"]
-        if buffer_output == "no":
-            self.my_open = uopen
-        else:
-            self.my_open = open
+        self.conf = ConfReader("crawler.conf", default_conf)
+        buffer_output = self.conf.get("buffer_output")
+        self.my_open = uopen if buffer_output == "no" else open
 
-        tmp = self.conf.get("log_path")
-        self.log_path = tmp if tmp else default_conf["log_path"]
-        self.log = self.my_open(self.log_path + "/NetworkHandler.log", "w+")
-        self.lock = threading.Lock()
+        self.log = Logger(Logger.DEBUG)
 
         self._ip = ip
         self._port = port
@@ -52,9 +45,8 @@ class NetworkHandler:
                 sock.sendall(data)
                 sock.close()
             else:
-                with self.lock:
-                    self.log.write(("Cannot establish valid connection(SEND)"
-                        "with manager[%s,%s]\n") % (str(self._ip), str(self._port)))
+                self.log.info(("Cannot establish valid connection(SEND)"
+                                "with manager[%s,%s]\n") % (str(self._ip), str(self._port)))
                 raise Exception(("Cannot establish valid connection(SEND) with"
                     "manager[%s,%s]") % (str(self._ip), str(self._port)))
         except Exception:
@@ -79,13 +71,11 @@ class NetworkHandler:
                 # FIXME: if links_raw is empty, then pickle.loads would fail,
                 # which indicates that peer close connection too early
                 links = b''.join(links_raw)
-                with self.lock:
-                    self.log.write("NetworkHandler get data:[%s]\n" % str(links))
+                self.log.info("NetworkHandler get data:[%s]\n" % str(links))
                 sock.close()
                 return (focusing, pickle.loads(links))
             else:
-                with self.lock:
-                    self.log.write(("Cannot establish valid connection(REQUEST)"
+                self.log.info(("Cannot establish valid connection(REQUEST)"
                         "with manager[%s,%s]\n") % (str(self._ip), str(self._port)))
                 raise Exception(("Cannot establish valid connection(REQUEST) with"
                     "manager[%s,%s]") % (str(self._ip), str(self._port)))

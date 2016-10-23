@@ -6,11 +6,9 @@ usage() {
     echo "or"
     echo "    ./run.sh crawler"
     echo "or"
-    echo "    sudo ./run.sh stop (to terminate managers/crawlers)"
+    echo "    sudo ./run.sh stop(terminate) (to terminate managers/crawlers)"
     echo "or"
-    echo "    sudo ./run.sh terminate (to terminate managers/crawlers)"
-    echo "or"
-    echo "    ./run.sh show (to show current process(manager/crawler) info"
+    echo "    ./run.sh show(status) (to show current process(manager/crawler) info"
 }
 
 manager() {
@@ -37,12 +35,12 @@ crawler() {
 
 terminate() {
     echo -n "Killing process..."
-    kill -KILL $(ps aux|perl -ne 'print "$1 " if /.*?(\d+).*python3 \.\/src\/(manager|crawler)\.py/')
+    kill -KILL $(ps aux|perl -ne 'print "$1 " if /.*?(\d+).*python3 \.\/src\/(manager|crawler)\.py/') > /dev/null 2>&1
     if [[ "$?" == 0 ]]
     then
         echo "OK"
     else
-        echo "FAIL"
+        echo "FAIL (maybe no process running currently, or you have no permission)"
     fi
 }
 
@@ -57,6 +55,10 @@ show() {
         echo $cra
     fi
     echo ""
+}
+
+st() {
+    show
 }
 
 # creating log dir
@@ -80,6 +82,9 @@ then
 elif [[ "$1" == "show" ]]
 then
     show
+elif [[ "$1" == "status" ]]
+then
+    st
 else
     usage
 fi

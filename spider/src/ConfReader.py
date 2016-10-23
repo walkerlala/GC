@@ -14,8 +14,9 @@ class ConfReader(object):
         If the configuration required is not presented in the configuration
         file, then a None would be returned """
 
-    def __init__(self, conf_file):
+    def __init__(self, conf_file, default_conf):
         self.conf_dict = {}
+        self.defconf = default_conf
         with open("conf/" + conf_file, "r") as f:
             for line in f:
                 if not line.strip() or line.strip().startswith('#'):
@@ -34,6 +35,8 @@ class ConfReader(object):
     def get(self, name):
         if name in self.conf_dict:
             return self.conf_dict.get(name)
+        elif name in self.defconf:
+            return self.defconf[name]
         else:
-            return None
+            raise Exception("No configuration for '%s'" % name)
 
