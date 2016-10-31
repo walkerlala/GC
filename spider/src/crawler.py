@@ -106,6 +106,7 @@ class Crawler(object):
                 # message(self.focusing), which tell the crawler whether it
                 # should still be focused-crawling or not
                 (self.focusing, links) = self.links_requester.request()
+                self.log.info("links_requester fail request()")
                 if not links:
                     #return whatever in self._buffer
                     tmp = self._buffer

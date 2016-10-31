@@ -113,7 +113,6 @@ class PriQueue:
             self._release()
         else:
             #select a crawler(addr) to assign this domain to
-            self._acquire()   # one lock to make your life easier...
             sorted_by_val = sorted(self.addr_domainNR.items(), key=lambda x: x[1])
             addr = sorted_by_val[0][0]
             if not self.has_pos(addr):
