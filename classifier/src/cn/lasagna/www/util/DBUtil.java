@@ -15,6 +15,7 @@ public class DBUtil {
     private String password;
 
     public DBUtil() {
+        //default setting here
         this.driver = "com.mysql.jdbc.Driver";
         this.username = "root";
         this.password = "root324";
@@ -22,7 +23,7 @@ public class DBUtil {
     }
 
     public void connectDB(String databaseName) throws Exception {
-        this.url = this.dbUrl + "/" + databaseName + "?useUnicode=true&characterEncoding=UTF-8";
+        this.url = this.dbUrl.replaceAll("/+$", "") + "/" + databaseName + "?useUnicode=true&characterEncoding=UTF-8";
         getConnection();
     }
 
@@ -31,7 +32,7 @@ public class DBUtil {
         this.dbUrl = dbUrl;
         this.password = password;
         this.username = user;
-        this.url = this.dbUrl + "/" + databaseName + "?useUnicode=true&characterEncoding=UTF-8";
+        this.url = this.dbUrl.replaceAll("/+$", "") + "/" + databaseName + "?useUnicode=true&characterEncoding=UTF-8";
         getConnection();
     }
 

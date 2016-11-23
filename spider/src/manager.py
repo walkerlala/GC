@@ -53,12 +53,14 @@ class PriQueue:
         """ Initialization """
         self.links = []
         self.links_file = links_file
-        self.randobj = random.Random(7) #use to generate random position for inserting
+        #self.randobj = random.Random(7) #use to generate random position for inserting
 
         # main data structure in this class
         self.links_by_addr = {}       # every crawler use a queue
         self.domains_queue = {}  # which domain correspond to which crawler: domain <=> ip
         self.addr_domainNR = defaultdict(int)    # which crawler has how many domains
+
+        self.dominant_threshold = 5
 
         self._lock = threading.Lock() #lock with many usages
 
@@ -108,21 +110,22 @@ class PriQueue:
             addr = self.domains_queue.get(domain)
             if not self.has_pos(addr):
                 self.set_pos(addr)
-            index = int(self.randobj.random() * len(self.links_by_addr[addr]))
-            self.links_by_addr[addr].insert(index, link)
-            self._release()
+            #index = int(self.randobj.random() * len(self.links_by_addr[addr]))
+            #self.links_by_addr[addr].insert(index, link)
+            self.insert_into(addr, link)
         else:
             #select a crawler(addr) to assign this domain to
             sorted_by_val = sorted(self.addr_domainNR.items(), key=lambda x: x[1])
             addr = sorted_by_val[0][0]
             if not self.has_pos(addr):
                 self.set_pos(addr)
-            index = int(self.randobj.random() * len(self.links_by_addr[addr]))
-            self.links_by_addr[addr].insert(index, link)
+            #index = int(self.randobj.random() * len(self.links_by_addr[addr]))
+            #self.links_by_addr[addr].insert(index, link)
+            self.insert_into(addr, link)
             self.domains_queue[domain] = addr
             logger.info("append(): assigning domain[%s] to addr[%s]" % (domain, addr))
             self.addr_domainNR[addr] = self.addr_domainNR[addr] + 1
-            self._release()
+        self._release()
 
     def get_by_addr(self, addr):
         """ get links from specific prio queue """
@@ -149,7 +152,7 @@ class PriQueue:
                 self.set_pos(addr)
                 self.addr_domainNR[addr] = 0  # "register" this crawler
                 self._release()
-                time.sleep(60) # would sleep halt the entire process ?
+                time.sleep(60) # sleep() would halt only current thread, not the entire process ?
                 return 'https://www.oh-my-url-you-are-definitely-going-to-fail.com'
             elif len(self.links_by_addr[addr]):
                 logger.info("returning one links to [%s]" % addr)
@@ -158,6 +161,34 @@ class PriQueue:
                 return link
             else:
                 raise EmptyPriQueue("Empty links for crawler:[%s]\n" % addr)
+
+    def insert_into(self, addr, link):
+        """ insert this link into proper list, in a proper order """
+        # if there are too many link of the same domain in list, then we should
+        # remove some so that others links from other domains can have chances
+        # to be crawled
+        self.links_by_addr[addr].append(link)
+        self.links_by_addr[addr] = sorted(self.links_by_addr[addr], key=lambda x: x[::-1])
+
+    def remove_dominant(self):
+        """ remove links of dominant domain. A domain is dominant if most
+            of links in prio_que are of this domain """
+        self._acquire()
+        for k, v in self.links_by_addr.items():
+            domain_NR = defaultdict(int)
+            to_be_del = []
+            for index, link in enumerate(v):
+                protocal, domain = self.get_protocal_domain(link)
+                if domain_NR[domain] <= self.dominant_threshold:
+                    domain_NR[domain] = domain_NR[domain] + 1
+                else:
+                    to_be_del.append(index)
+            new_v = []
+            for index, link in enumerate(v):
+                if index not in to_be_del:
+                    new_v.append(link)
+            self.links_by_addr[k] = new_v
+        self._release()
 
     def get_protocal_domain(self, url):
         """ return protocal and domain """
@@ -271,6 +302,10 @@ class Manager:
                             for sub_link in value:
                                 if sub_link not in self.bloom_filter:
                                     self.prio_que.append(sub_link)
+                            # remove links of dominant domain so that links
+                            # from other domains have an opportunity to be
+                            # crawled
+                            self.prio_que.remove_dominant()
                         self.bf_release()
 
                 #write all the link to `self._links_track`

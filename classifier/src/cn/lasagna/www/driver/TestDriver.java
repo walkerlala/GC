@@ -16,7 +16,7 @@ import java.util.List;
  */
 public class TestDriver {
     public static void main(String[] args) throws Exception {
-        List<Term> parse = NlpAnalysis.parse("John_新浪博客,John,ielts,雅思口语,教育,雅思口语,ielts,speaking,part,2,ielts,speaking,雅思口语,part,2,ielts,speaking,雅思口语,ielts,雅思口语,ielts,雅思口语,英语学习");
+        List<Term> parse = NlpAnalysis.parse("John_新浪博客,John,ielts,雅思口语,教育,雅思口语,ielts,speaking,part,2,ielts,speaking,雅思口语,part,2,ielts,speaking,雅思口语,ielts,雅思口语,ielts,雅思口语,英语学习").getTerms();
         System.out.println(parse);
         String termNameTrim;
         String termNameUpperCase;

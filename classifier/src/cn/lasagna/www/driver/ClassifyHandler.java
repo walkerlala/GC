@@ -4,6 +4,8 @@ package cn.lasagna.www.driver;
  * Created by walkerlala on 16-10-24.
  */
 import cn.lasagna.www.classifier.ClassifierInterface;
+import cn.lasagna.www.classifier.Record;
+import cn.lasagna.www.classifier.RecordPool;
 import cn.lasagna.www.classifier.knn.KNN;
 import cn.lasagna.www.util.Configuration;
 import cn.lasagna.www.util.DBUtil;
@@ -11,27 +13,32 @@ import cn.lasagna.www.util.DBUtil;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.*;
+
+import cn.lasagna.www.util.MyLogger;
 import org.apache.log4j.Logger;
 
-/* TODO: should rebuild ambiguity.dic */
+/* TODO: should rebuild ambiguity.dic
+ * TODO: should use similarity-dic
+ * TODO: should use importance-dic
+ */
 public class ClassifyHandler {
     //Without any access qualifier(public, private, protected)desclared, logger has "package visibility"(default visibility in Java)
     //In Java there are public, protected, package (default), and private visibilities; ordered from most visible to least.
-    Logger logger = Logger.getLogger(this.getClass());
+    //Logger logger = Logger.getLogger(this.getClass());
+    MyLogger logger = new MyLogger(this.getClass());
 
     private String classiferName;
     private ClassifierInterface classifer;
-    private List<Map<String, String>> trainingSet;
+    private RecordPool trainingSet;
 
     private DBUtil trainingSetDB = new DBUtil();
     private DBUtil dataSetDB = new DBUtil();
     private DBUtil resultSetDB = new DBUtil();
 
     public ClassifyHandler(){
-        logger.info("ClassifierHandler initiating");
-        System.out.println("ClassifierHandler initiating");
+        logger.info("ClassifierHandler initiating", MyLogger.STDOUT);
         classiferName = Configuration.classifier;
-        trainingSet = new ArrayList<>();
+        trainingSet = new RecordPool();
 
         try {
             // connect training database
@@ -42,8 +49,7 @@ public class ClassifyHandler {
             e.printStackTrace();
         }
 
-        logger.info("trainingSetDB connected. Going to loadBasicTrainingSet");
-        System.out.println("trainingSetDB connected. Going to loadBasicTrainingSet");
+        logger.info("trainingSetDB connected. Going to loadBasicTrainingSet", MyLogger.STDOUT);
         // load training set to this.trainingSet
         loadBasicTrainingSet();
 
@@ -53,15 +59,14 @@ public class ClassifyHandler {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        logger.info("trainingSetDB connection closed");
+        logger.info("trainingSetDB connection closed", MyLogger.STDOUT);
 
         switch(classiferName){
             case "knn":
                 this.classifer = new KNN();
                 //case "decisionTree":
         }
-        logger.info("Classifier: " + this.classiferName);
-        System.out.println("Classifier: " + this.classiferName);
+        logger.info("Classifier: " + this.classiferName, MyLogger.STDOUT);
     }
 
     private boolean loadBasicTrainingSet(){
@@ -72,27 +77,26 @@ public class ClassifyHandler {
             selectRs = trainingSetDB.query(selectSQL);
             selectStatement = selectRs.getStatement();
 
-            Map<String, String> dataMap;
+            Record record;
 
             //set cursor to beginning
             selectRs.beforeFirst();
 
             while(selectRs.next()) {
-                dataMap = new HashMap<String, String>();
-                dataMap.put("page_id", selectRs.getString("page_id"));
-                dataMap.put("page_url", selectRs.getString("page_url"));
-                dataMap.put("domain_name", selectRs.getString("domain_name"));
-                dataMap.put("title", selectRs.getString("title"));
-                dataMap.put("keywords", selectRs.getString("keywords"));
-                dataMap.put("description", selectRs.getString("description"));
+                record = new Record();
+                record.setPage_id(selectRs.getString("page_id"));
+                record.setPage_url(selectRs.getString("page_url"));
+                record.setDomain_name(selectRs.getString("domain_name"));
+                record.setTitle(selectRs.getString("title"));
+                record.setKeywords(selectRs.getString("keywords"));
+                record.setDescription(selectRs.getString("description"));
                 /*FIXME: Note that we don't include the `text` part now because it's so large that
                  * it may slow down the program */
-                //dataMap.put("text", selectRs.getString("text"));
-                dataMap.put("tag", selectRs.getString("tag"));
-                //dataMap.put("PR_score", selectRs.getString("PR_score"));
-                //dataMap.put("ad_NR", selectRs.getString("ad_NR"));
-
-                trainingSet.add(dataMap);
+                //record.setText(selectRs.getString("text"));
+                record.setTag(selectRs.getString("tag"));
+                //record.setPR_score(selectRs.getDouble("PR_score"));
+                //record.setAd_NR(selectRs.getLong("ad_NR"));
+                this.trainingSet.add(record);
 
             }
             //close selectRs
@@ -108,11 +112,9 @@ public class ClassifyHandler {
     //TODO: make it concurrent
     public void handle(){
 
-        logger.info("Building training Model");
-        System.out.println("Building training Model");
+        logger.info("Building training Model", MyLogger.STDOUT);
         classifer.buildTrainingModel(trainingSet);
-        logger.info("Done built training Model");
-        System.out.println("Done built training Model");
+        logger.info("Done built training Model", MyLogger.STDOUT);
 
         //load data set and classifier it
         //connect database
@@ -126,9 +128,31 @@ public class ClassifyHandler {
         }
 
 
-        //TODO: should ensure that this table exists
+        //make sure that these table exists and clear
+        try {
+            resultSetDB.modify("CREATE TABLE IF NOT EXISTS `pages_table` (" +
+                    "`page_id` int(20) NOT NULL AUTO_INCREMENT," +
+                    "`page_url` varchar(400) NOT NULL," +
+                    "`domain_name` varchar(100) NOT NULL," +
+                    //"`sublinks` text," +
+                    "`title` varchar(255)," +
+                    //"`nomal_content` text," +
+                    //"`emphasized_content` text," +
+                    "`keywords` varchar(255)," +
+                    "`description` varchar(511)," +
+                    "`text` longtext," +
+                    "`PR_score` double default 0.0," +
+                    "`ad_NR` int default 0," +
+                    "`tag` varchar(20) default null," +
+                    //"`classify_attr1` ..." +
+                    "PRIMARY KEY (`page_id`)" +
+                    ")ENGINE=InnoDB");
+            resultSetDB.modify("truncate table `pages_table`");
+        }catch (Exception e){
+            e.printStackTrace();
+        }
         String selectSQL = "SELECT * FROM `pages_table`";
-        List<Map<String, String>> dataPart;
+        RecordPool dataPart;
         ResultSet rs;
         Statement rsStatement;
         //TODO: this temporary setting would be removed
@@ -138,43 +162,43 @@ public class ClassifyHandler {
             rsStatement = rs.getStatement();
             rs.beforeFirst();
             while(rs.next()) {
-                dataPart = new ArrayList<>();
-                Map<String, String> record;
+                dataPart = new RecordPool();
+                Record record;
                 for (int i = 0; i < roundNum; i++) {
                     if (rs.next()) {
-                        record = new HashMap<>();
-                        record.put("page_id", rs.getString("page_id"));
-                        record.put("page_url", rs.getString("page_url"));
-                        record.put("domain_name", rs.getString("domain_name"));
-                        record.put("title", rs.getString("title"));
-                        record.put("keywords", rs.getString("keywords"));
-                        record.put("description", rs.getString("description"));
-                        //record.put("text", rs.getString("text"));
-
+                        record = new Record();
+                        record.setPage_id(rs.getString("page_id"));
+                        record.setPage_url(rs.getString("page_url"));
+                        record.setDomain_name(rs.getString("domain_name"));
+                        record.setTitle(rs.getString("title"));
+                        record.setKeywords(rs.getString("keywords"));
+                        record.setDescription(rs.getString("description"));
+                        //record.setText(rs.getString("text"));
                         dataPart.add(record);
                     } else {
                         break;
                     }
                 }
 
+                preprocessData(dataPart);
                 //start to classify part of the data set
-                List<Map<String, String>> partResult = classifer.classify(dataPart);
+                RecordPool partResult = classifer.classify(dataPart);
 
                 //store it back to result database
-                String storeSQL = "INSERT INTO `classify_result`(page_id, page_url," +
+                String storeSQL = "INSERT INTO `pages_table`(page_id, page_url," +
                         " domain_name, title, keywords, description, tag)" +
                         " VALUES(?, ?, ?, ?, ?, ?, ?) ";
-                for(Map<String, String> part : partResult) {
+                for(Record part : partResult) {
                     //TODO: the `text` field maybe so larget that it slow down the program
                     //TODO: we can use ansej to remove html tags
-                    resultSetDB.insert(storeSQL, part.get("page_id"),
-                                                 part.get("page_url"),
-                                                 part.get("domain_name"),
-                                                 part.get("title"),
-                                                 part.get("keywords"),
-                                                 part.get("description"),
-                                                 //part.get("text"),
-                                                 part.get("tag"));
+                    resultSetDB.insert(storeSQL, part.getPage_id(),
+                                                 part.getPage_url(),
+                                                 part.getDomain_name(),
+                                                 part.getTitle(),
+                                                 part.getKeywords(),
+                                                 part.getDescription(),
+                                                 //part.getText(),
+                                                 part.getTag());
 
                 }
             }
@@ -192,16 +216,20 @@ public class ClassifyHandler {
 
     }
 
+    /* seperate word, remove stop word... */
+    boolean preprocessData(RecordPool dataPart) {
+        for(Record record : dataPart){
+            String kw = record.getKeywords();
+            String desc = record.getDescription();
+            String newKw = KNN.generateWords(kw);
+            String newDesc = KNN.generateWords(desc);
+            record.setKeywords(newKw);
+            record.setDescription(newDesc);
+        }
+        return true;
+    }
+
 }
-
-
-
-
-
-
-
-
-
 
 
 

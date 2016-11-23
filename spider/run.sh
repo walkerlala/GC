@@ -51,8 +51,8 @@ show() {
     if [[ -z $man && -z $cra ]]; then
         echo "No manager/crawler is running in background."
     else
-        echo $man
-        echo $cra
+        echo "$man"
+        echo "$cra"
     fi
     echo ""
 }

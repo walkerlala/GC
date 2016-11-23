@@ -4,10 +4,14 @@ package cn.lasagna.www.util;
  * Created by walkerlala on 16-10-23.
  */
 
+import cn.lasagna.www.classifier.knn.KNN;
+import org.jcp.xml.dsig.internal.dom.DOMUtils;
+
 import java.io.BufferedInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.DoubleSummaryStatistics;
 import java.util.Properties;
 
 public class Configuration {
@@ -33,6 +37,8 @@ public class Configuration {
     public static final String targetDBName;
 
     public static final String classifier;
+    public static final int K;
+    public static final double KNNKeywordsWeight;
 
     //instantiate
     static {
@@ -62,6 +68,8 @@ public class Configuration {
         targetDBName = prop.getProperty("targetDBName");
 
         classifier = prop.getProperty("classifier");
+        K = Integer.valueOf(prop.getProperty("K"));
+        KNNKeywordsWeight = Double.valueOf(prop.getProperty("KNNKeywordsWeight"));
     }
 
 }

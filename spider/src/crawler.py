@@ -33,6 +33,8 @@ default_conf = {
     "DB_url":"127.0.0.1",
     "DB_user":"root",
     "DB_passwd":"root324",
+    "crawler_DB":"crawlerDB",
+    "crawler_table":"pages_table",
     }
 
 class Crawler(object):
@@ -56,12 +58,14 @@ class Crawler(object):
         self.content_path = self.conf.get("content_path")
         self.crawling_timeout = self.conf.get("crawling_timeout")
 
-        DB_url = self.conf.get("DB_url")
-        DB_user = self.conf.get("DB_user")
-        DB_passwd = self.conf.get("DB_passwd")
-        self.db = DBHandler("crawlerDB", DB_user, DB_passwd, DB_url)
+        self.DB_url = self.conf.get("DB_url")
+        self.DB_user = self.conf.get("DB_user")
+        self.DB_passwd = self.conf.get("DB_passwd")
+        self.crawler_DB = self.conf.get("crawler_DB")
+        self.crawler_table = self.conf.get("crawler_table")
+        self.db = DBHandler(self.crawler_DB, self.DB_user,self.DB_passwd,self.DB_url)
         self.db.connect()
-        self.db.update("CREATE TABLE IF NOT EXISTS `pages_table` ("
+        self.db.update("CREATE TABLE IF NOT EXISTS `" + self.crawler_table + "` ("
                        " `page_id` int(20) NOT NULL AUTO_INCREMENT,"
                        " `page_url` varchar(400) NOT NULL,"
                        " `domain_name` varchar(100) NOT NULL,"
@@ -74,10 +78,11 @@ class Crawler(object):
                        " `text` longtext,"
                        " `PR_score` double default 0.0,"
                        " `ad_NR` int default 0,"
+                       " `tag` varchar(20) default null,"
                        #" `classify_attribute` ...
                        " PRIMARY KEY (`page_id`)"
-                       ") ENGINE=InnoDB" )
-
+                       ")CHARSET=UTF8, ENGINE=InnoDB" )
+        self.db.update("truncate table " + self.crawler_table)
 
         # hold all the links to be sent back to manager
         self._result_dict = {}
@@ -106,7 +111,7 @@ class Crawler(object):
                 # message(self.focusing), which tell the crawler whether it
                 # should still be focused-crawling or not
                 (self.focusing, links) = self.links_requester.request()
-                self.log.info("links_requester fail request()")
+                self.log.info("links_requester succeed request()")
                 if not links:
                     #return whatever in self._buffer
                     tmp = self._buffer
@@ -133,18 +138,45 @@ class Crawler(object):
                 tmp.append(self._buffer.pop())
             return tmp
 
+    _pause_interval = 3
+    _exceeded_try=10
+    @staticmethod
+    def req(url, **kwargs):
+        page = requests.get(url, **kwargs)
+        trytime = 1
+        while trytime < _exceeded_try and page.status_code != 200:
+            page = requests.get(url, **kwargs)
+            time.sleep(_pause_interval)
+            trytime = trytime + 1
+        return page
+
+
     def get_web(self, resolved_url):
         """used to grab a web information and return a Response object."""
 
         #fake as 'Baidu Spider'. Can also fake as GoogleBot, or YoudaoBot,
         #but this maybe easily detected due to ip-mismatch
         #NOTE: According to RFC 7230, HTTP header names are case-INsensitive
-        headers = {'User-Agent': 'Baidu Spider',
-                   'Accept':'text/plain, text/html', #want only text
-                   #' Requests would handle encoding and decoding for us
-                  }
+        #headers = {'User-Agent': 'Baidu Spider',
+        #           'Accept':'text/plain, text/html', #want only text
+        #           #' Requests would handle encoding and decoding for us
+        #          }
+        headers={
+                'Accept':'text/plain, text/html', #want only text
+                "accept-encoding":"gzip, deflate, sdch",
+                "accept-language":"en-US,en;q=0.8",
+                "Cache-Control":"max-age=0",
+                "Cookie":"timezone=480; I2KBRCK=1; cookiePolicy=accept",
+                #"Host":"www.tandfonline.com",
+                "Proxy-Connection":"keep-alive",
+                #"Referer":"https://www.tandfonline.com",
+                "Upgrade-Insecure-Requests":"1",
+                "User-agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.94 Safari/537.36",
+                #"User-Agent":"Google Bot",
+                }
+
         try:
-            response = requests.get(resolved_url, headers=headers, timeout=self.crawling_timeout)
+            response = req(resolved_url, headers=headers, timeout=self.crawling_timeout)
             self.log.info("Get response[%d]: [%s]" % (response.status_code, resolved_url))
             #check whether we get a plain text response
             #note that key in `response.headers` is case insensitive
@@ -281,25 +313,32 @@ class Crawler(object):
     def dump_content(self, resp):
         """ requests cannot detect web page encoding automatically(FUCK!).
             response.encoding is from the html reponse header. If we want to
-            convert all the content we want to utf8, we have to use `get_encodings_from_content;' """
+            convert all the content we want to utf8, we have to use `get_encodings_from_content; """
         # resp.text is in unicode(type 'str')
         try:
             real_encoding = requests.utils.get_encodings_from_content(resp.text)[0]
-            text = resp.content.decode(real_encoding).encode('utf-8')
+            text = resp.content.decode(real_encoding, "ignore").encode('utf-8')
         except Exception:
             text = resp.content
 
         def extract_kw_desc(text):
-            kws = re.findall(rb'<meta\s+name\s{0,2}=\s{0,2}"keywords"\s+content\s{0,2}=\s{0,2}"(.{0,255}?)" />',
-                    text, re.DOTALL)
-            descs = re.findall(rb'<meta\s+name\s{0,2}=\s{0,2}"description"\s+content\s{0,2}=\s{0,2}"(.{0,511}?)" >',
-                    text, re.DOTALL)
-            kw = b""
-            if kws:
-                kw = kws[0]
-            desc = b""
-            if descs:
-                desc = descs[0]
+            #these two extraction rule is far from complete. show build DOM tree to extract them
+            kws = re.findall(rb'<meta name="[Kk]eywords" [ \n\r]{1,3}content="(.*?)" [ \n\r]?/?>', text)
+            if not kws:
+                kws = re.findall(rb'<meta content="(.*?)" [ \n\r]{1,3}name="[Kk]eywords" [ \n\r]?/?>', text)
+
+            descs = re.findall(rb'<meta name="[Dd]escription" [ \n\r]{1,3}content="(.*?)" [ \n\r]?/?>', text)
+            if not descs:
+                descs = re.findall(rb'<meta content="(.*?)" [ \n\r]{1,3}name="[Dd]escription" [ \n\r]?/?>', text)
+
+            kw = kws[0] if kws else b""
+            desc = descs[0] if descs else b""
+            #kw = b""
+            #if kws:
+            #    kw = kws[0]
+            #desc = b""
+            #if descs:
+            #    desc = descs[0]
             return kw, desc
 
         page_url = bytes(resp.url, 'utf-8')
@@ -311,11 +350,10 @@ class Crawler(object):
             title = titles[0]
         kw, desc = extract_kw_desc(text)
 
-        self.db.update("INSERT INTO pages_table (`page_url`, `domain_name`,"
+        self.db.update("INSERT INTO " + self.crawler_table + "(`page_url`, `domain_name`,"
                 "`title`, `text`, `keywords`, `description`) "
                 "VALUES (%s, %s, %s, %s, %s, %s);",
                 (page_url, domain_name, title, text, kw, desc))
-
 
 if __name__ == "__main__":
     crawler = Crawler()

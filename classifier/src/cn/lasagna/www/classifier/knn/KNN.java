@@ -3,9 +3,11 @@ package cn.lasagna.www.classifier.knn;
 /**
  * Created by walkerlala on 16-10-23.
  */
+import cn.lasagna.www.classifier.Record;
+import cn.lasagna.www.classifier.RecordPool;
+import cn.lasagna.www.util.Configuration;
 import org.ansj.dic.LearnTool;
 import org.ansj.domain.Term;
-import org.ansj.recognition.NatureRecognition;
 import org.ansj.splitWord.analysis.NlpAnalysis;
 
 import java.util.Collections;
@@ -14,101 +16,100 @@ import java.util.*;
 import cn.lasagna.www.classifier.ClassifierInterface;
 
 public class KNN implements ClassifierInterface {
-    private List<Map<String, String>> KnnSet;
-    //TODO: this is temporary and would be moved to configuration file
-    private int K = 100;
-    private double keywordsWeight = 0.6;   // see `caculateJaccard()'
+    private RecordPool KnnSet;
+    private int K = Configuration.K;
+    private double keywordsWeight = Configuration.KNNKeywordsWeight;   // see `caculateJaccard()'
 
-    public boolean buildTrainingModel(List<Map<String, String>> trainingSet) {
+    public boolean buildTrainingModel(RecordPool trainingSet) {
         //process the content of `keywords` tag and `description` tag
-        this.KnnSet = new ArrayList<>();
-        Map<String, String> newTuple;
-        StringBuilder newKeywords;
-        StringBuilder newDescription;
-        String keywords;
-        String description;
-        List<Term> termList;
-        LearnTool learn = new LearnTool();
-        String termNameTrim;
-        String termNatureStr;
+        this.KnnSet = new RecordPool();
+        Record newRecord;
 
-        for (Map<String, String> tuple : trainingSet) {
-            newTuple = new HashMap<>();
-            newTuple.putAll(tuple);
+        for (Record record : trainingSet) {
+            newRecord = new Record();
+            newRecord.putAll(record);
 
             //parse `keywords` tag to generate words list
-            keywords = tuple.get("keywords");
-            termList = NlpAnalysis.parse(keywords, learn);
-            new NatureRecognition(termList).recognition();
-            newKeywords = new StringBuilder();
-            for (Term term : termList) {
-                try {
-                    termNameTrim = term.getName().trim();
-                    termNatureStr = term.getNatureStr();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    continue;
-                }
-
-                if (termNatureStr != "null") {
-                    newKeywords.append(termNameTrim.toUpperCase() + ",");
-                }
-            }
-            newTuple.replace("keywords", newKeywords.toString());
+            String keywords = record.getKeywords();
+            String newKeywords = KNN.generateWords(keywords);
+            newRecord.setKeywords(newKeywords);
 
             // parse `descriptios` to generate clean words list
-            description = tuple.get("description");
-            termList = NlpAnalysis.parse(description, learn);
-            newDescription = new StringBuilder();
-            for (Term term : termList) {
-                try {
-                    termNameTrim = term.getName().trim();
-                    termNatureStr = term.getNatureStr();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    continue;
-                }
+            String description = record.getDescription();
+            String newDescription = KNN.generateWords(description);
+            record.setDescription(newDescription);
 
-                if (termNatureStr != "null") {
-                    newDescription.append(termNameTrim.toUpperCase() + ",");
-                }
-            }
-            newTuple.replace("description", newDescription.toString());
-
-            this.KnnSet.add(newTuple);
+            this.KnnSet.add(record);
         }
 
         return true;
     }
 
-    public List<Map<String, String>> classify(List<Map<String, String>> dataSet) {
-        List<Map<String, String>> KNearest;
-        List<Map<String, String>> classifiedSet = new ArrayList<>();
-        Map<String, String> newTuple;
-        for (Map<String, String> tuple : dataSet) {
-            newTuple = new HashMap<>();
-            newTuple.putAll(tuple);
-            KNearest = getKNearest(newTuple);
+    /* return word list seperate by . */
+    public static String generateWords(String str){
+        List<Term> termList = NlpAnalysis.parse(str).getTerms();
+
+        //remove duplicate
+        Set<Term> termSet = new HashSet<>();
+        termSet.addAll(termList);
+        termList.clear();
+        termList.addAll(termSet);
+
+        StringBuilder newStr = new StringBuilder();
+        String termNameTrim;
+        String termNatureStr;
+        for(Term term:termList){
+            try {
+                termNameTrim = term.getName().trim();
+                termNatureStr = term.getNatureStr();
+            }catch (Exception e){
+                e.printStackTrace();
+                continue;
+            }
+
+            // only those term which length is greater than 2 make sense
+            // alternatively we can use a `removeStopWord()' function to
+            // remove stop word such as ‘的', '得'，'了'...
+            if(termNatureStr != "null" && termNameTrim.length() >= 2 && termNatureStr.contains("n")){
+                newStr.append(termNameTrim.toUpperCase() + ",");
+            }
+        }
+
+        return newStr.toString();
+    }
+
+    public RecordPool classify(RecordPool dataSet) {
+        RecordPool KNearest;
+        RecordPool classifiedSet = new RecordPool();
+        Record newRecord;
+        for (Record tuple : dataSet) {
+            newRecord = new Record();
+            newRecord.putAll(tuple);
+            KNearest = getKNearest(newRecord);
             String tag = voteForTag(KNearest);
-            newTuple.put("tag", tag);  // this should change `dataSet`
-            classifiedSet.add(newTuple);
+            newRecord.setTag(tag);  // this should change `dataSet`
+            classifiedSet.add(newRecord);
         }
         return classifiedSet;
     }
 
-    private List<Map<String, String>> getKNearest(Map<String, String> tuple) {
+    private RecordPool getKNearest(Record record) {
         //first sort the list in descending according to the distance to `tuple`(we use Jaccard coefficient here
-        Collections.sort(this.KnnSet, new Comparator<Map<String, String>>() {
-            @Override
-            public int compare(Map<String, String> o1, Map<String, String> o2) {
-                // -1 -- less than, 1 -- greater than, 0 -- equal
-                double o1Dist = calculateJaccard(o1, tuple);
-                double o2Dist = calculateJaccard(o2, tuple);
-                return o1Dist > o2Dist ? -1 : 1;
-            }
-        });
+        try {
+            this.KnnSet.sort(new Comparator<Record>() {
+                @Override
+                public int compare(Record o1, Record o2) {
+                    // -1 -- less than, 1 -- greater than, 0 -- equal
+                    double o1Result = calculateJaccard(o1, record);
+                    double o2Result = calculateJaccard(o2, record);
+                    return o1Result > o2Result ? -1 : (o1Result < o2Result ? 1 : 0);
+                }
+            });
+        }catch(IllegalArgumentException e){
+            e.printStackTrace();
+        }
 
-        List<Map<String, String>> KnnPart = new ArrayList<>();
+        RecordPool KnnPart = new RecordPool();
         int round = (this.K <= this.KnnSet.size()) ? this.K : this.KnnSet.size();
         for (int i = 0; i < round; i++) {
             KnnPart.add(this.KnnSet.get(i));
@@ -116,12 +117,12 @@ public class KNN implements ClassifierInterface {
         return KnnPart;
     }
 
-    private double calculateJaccard(Map<String, String> o1, Map<String, String> o2) {
+    private double calculateJaccard(Record o1, Record o2) {
         // we just calculate their distance according to the `keywords` tag and `description` tag
-        List<String> kwList1 = Arrays.asList(o1.get("keywords").split(","));
-        List<String> kwList2 = Arrays.asList(o2.get("keywords").split(","));
-        List<String> descList1 = Arrays.asList(o1.get("description").split(","));
-        List<String> descList2 = Arrays.asList(o2.get("description").split(","));
+        List<String> kwList1 = Arrays.asList(o1.getKeywords().split(","));
+        List<String> kwList2 = Arrays.asList(o2.getKeywords().split(","));
+        List<String> descList1 = Arrays.asList(o1.getDescription().split(","));
+        List<String> descList2 = Arrays.asList(o2.getDescription().split(","));
         Collections.sort(kwList1);
         Collections.sort(kwList2);
         Collections.sort(descList1);
@@ -158,14 +159,26 @@ public class KNN implements ClassifierInterface {
         }
         double descJaccard = descCommon / (descCommon + descDiff1 + descDiff2);
 
-        return keywordsWeight * kwJaccard + (1 - keywordsWeight) * descJaccard;
+        //return keywordsWeight * kwJaccard + (1 - keywordsWeight) * descJaccard;
+        double result = keywordsWeight * kwJaccard + (1 - keywordsWeight) * descJaccard;
+        /*
+        System.out.println("======= Jaccard coefficient ===========");
+        System.out.println("o1 kws:     " + o1.get("keywords"));
+        System.out.println("o1 desc:    " + o1.get("description"));
+        System.out.println("o2 kws:     " + o2.get("keywords"));
+        System.out.println("o2 desc:    " + o2.get("description"));
+        System.out.println("Jaccard Coefficient: " + result);
+        System.out.println("======= END Jaccard ===========");
+        */
+
+        return result;
 
     }
 
-    private String voteForTag(List<Map<String, String>> KNearest) {
+    private String voteForTag(RecordPool KNearest) {
         Map<String, Integer> tags = new HashMap<>();
-        for(Map<String, String> tuple : KNearest){
-            String tag = tuple.get("tag");
+        for(Record record : KNearest){
+            String tag = record.getTag();
             tags.merge(tag, 1, (a,b) -> a + b);
         }
 

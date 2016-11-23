@@ -13,12 +13,19 @@ import datetime
 DEBUG = 0
 INFO = 1
 
+FILE = 2
+STDOUT = 4
+STDERR = 8
+
 class Logger:
     """ my little logger """
 
     # Logger constant. Can be access by Logger.CONSTANT_NAME
     DEBUG = 0
     INFO = 1
+    FILE = 2
+    STDOUT = 4
+    STDERR = 8
 
     def __init__(self, log_level=DEBUG):
         """ initialization """
@@ -51,15 +58,21 @@ class Logger:
         """ release lock to self._log """
         self.lock.release()
 
-    def info(self, msg):
+    def info(self, msg, direction=FILE):
         """ logging method. Ignore log_level now """
         self.acquire_lock()
         t = str(datetime.datetime.now())
-        self._log.write("[%s] " % t + (msg).strip() + "\n")
+        out_msg = "[%s] " % t + str(msg).strip()
+        self._log.write(out_msg + "\n")
+        if (direction & Logger.STDOUT):
+            print(out_msg)
+        if (direction & Logger.STDERR):
+            print(out_msg, file = sys.stderr)
+
         if self.log_level == DEBUG:
             self._log.flush()  # flush buffer
         self.release_lock()
 
-    def write(self, msg):
+    def write(self, msg, **kwargs):
         """ same as self.info() """
-        self.info(msg)
+        self.info(msg, **kwargs)

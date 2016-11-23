@@ -9,6 +9,6 @@ import java.util.Map;
 
 /* all classifier should implement this interface */
 public interface ClassifierInterface {
-    public boolean buildTrainingModel(List<Map<String, String>> trainingSet);
-    public List<Map<String, String>> classify(List<Map<String, String>> dataSet);
+    public boolean buildTrainingModel(RecordPool trainingSet);
+    public RecordPool classify(RecordPool dataSet);
 }
