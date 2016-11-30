@@ -4,6 +4,7 @@ package cn.lasagna.www.driver;
  * Created by walkerlala on 16-10-24.
  */
 import cn.lasagna.www.classifier.ClassifierInterface;
+import cn.lasagna.www.classifier.Preprocessor;
 import cn.lasagna.www.classifier.Record;
 import cn.lasagna.www.classifier.RecordPool;
 import cn.lasagna.www.classifier.knn.KNN;
@@ -221,8 +222,8 @@ public class ClassifyHandler {
         for(Record record : dataPart){
             String kw = record.getKeywords();
             String desc = record.getDescription();
-            String newKw = KNN.generateWords(kw);
-            String newDesc = KNN.generateWords(desc);
+            String newKw = Preprocessor.generateWords(kw);
+            String newDesc = Preprocessor.generateWords(desc);
             record.setKeywords(newKw);
             record.setDescription(newDesc);
         }
