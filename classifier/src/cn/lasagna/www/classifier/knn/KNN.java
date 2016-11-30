@@ -6,9 +6,9 @@ package cn.lasagna.www.classifier.knn;
 import cn.lasagna.www.classifier.Record;
 import cn.lasagna.www.classifier.RecordPool;
 import cn.lasagna.www.util.Configuration;
-import org.ansj.dic.LearnTool;
-import org.ansj.domain.Term;
-import org.ansj.splitWord.analysis.NlpAnalysis;
+//import org.ansj.dic.LearnTool;
+//import org.ansj.domain.Term;
+//import org.ansj.splitWord.analysis.NlpAnalysis;
 
 import java.util.Collections;
 import java.util.*;
@@ -23,59 +23,8 @@ public class KNN implements ClassifierInterface {
     public boolean buildTrainingModel(RecordPool trainingSet) {
         //process the content of `keywords` tag and `description` tag
         this.KnnSet = new RecordPool();
-        Record newRecord;
-
-        for (Record record : trainingSet) {
-            newRecord = new Record();
-            newRecord.putAll(record);
-
-            //parse `keywords` tag to generate words list
-            String keywords = record.getKeywords();
-            String newKeywords = KNN.generateWords(keywords);
-            newRecord.setKeywords(newKeywords);
-
-            // parse `descriptios` to generate clean words list
-            String description = record.getDescription();
-            String newDescription = KNN.generateWords(description);
-            record.setDescription(newDescription);
-
-            this.KnnSet.add(record);
-        }
-
+        this.KnnSet.addAll(trainingSet);
         return true;
-    }
-
-    /* return word list seperate by . */
-    public static String generateWords(String str){
-        List<Term> termList = NlpAnalysis.parse(str).getTerms();
-
-        //remove duplicate
-        Set<Term> termSet = new HashSet<>();
-        termSet.addAll(termList);
-        termList.clear();
-        termList.addAll(termSet);
-
-        StringBuilder newStr = new StringBuilder();
-        String termNameTrim;
-        String termNatureStr;
-        for(Term term:termList){
-            try {
-                termNameTrim = term.getName().trim();
-                termNatureStr = term.getNatureStr();
-            }catch (Exception e){
-                e.printStackTrace();
-                continue;
-            }
-
-            // only those term which length is greater than 2 make sense
-            // alternatively we can use a `removeStopWord()' function to
-            // remove stop word such as ‘的', '得'，'了'...
-            if(termNatureStr != "null" && termNameTrim.length() >= 2 && termNatureStr.contains("n")){
-                newStr.append(termNameTrim.toUpperCase() + ",");
-            }
-        }
-
-        return newStr.toString();
     }
 
     public RecordPool classify(RecordPool dataSet) {
@@ -170,9 +119,7 @@ public class KNN implements ClassifierInterface {
         System.out.println("Jaccard Coefficient: " + result);
         System.out.println("======= END Jaccard ===========");
         */
-
         return result;
-
     }
 
     private String voteForTag(RecordPool KNearest) {
@@ -193,8 +140,3 @@ public class KNN implements ClassifierInterface {
         return list.get(0).getKey();
     }
 }
-
-
-
-
-
