@@ -15,8 +15,8 @@ public class ClassifyDriver {
 
         Preprocessor pre = new Preprocessor();
         
-        //ClassifyHandler classifyHandler = new ClassifyHandler();
-        //classifyHandler.handle();
+        ClassifyHandler classifyHandler = new ClassifyHandler();
+        classifyHandler.handle();
 
         String stopTime = new SimpleDateFormat("yyyy-MM-dd HH-mm-ss").format(new Date());
         System.out.println("Driver stop at " + stopTime);
