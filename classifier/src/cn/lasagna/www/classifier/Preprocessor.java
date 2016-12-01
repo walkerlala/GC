@@ -172,12 +172,9 @@ public class Preprocessor {
                 		 int A = wordFre.get(word);
                 		 int B = content.length;
                 		 int C = trainingSamples;
-                		 System.out.println(C);
                 		 int D = wordSample.get(word);
                 		 double tf = (double) A/B;
-                		 //System.out.println(tf);
                 		 double idf = Math.log((double)C/(D+1));
-                		 //System.out.println(idf);
                 		 double tf_idf = tf*idf;
                 		 newTI.setPage_id(page_id);
                 		 newTI.setWord_value(word);
@@ -264,6 +261,42 @@ public class Preprocessor {
   	}
   	
   	//calculate word frequency for Bayes Classifier
-  	//public static ArrayList<HashMap<String,Integer>>
+  	public static ArrayList<HashMap<String,Double>> getWordFreBayes(RecordPool pool){
+  		ArrayList<HashMap<String,Double>> map = new ArrayList<HashMap<String,Double>>();
+  		int[] numOfEveryTag  = new int[numOfTag];
+  		for(int i=0; i <numOfTag; i++){
+  			if(!tag[i].equals("")){
+  				HashMap<String,Double> tmp = new HashMap<String,Double>();
+  				map.add(tmp);
+  			}
+  		}
+  		String[] content;
+  		//calculate every tag's word frequency 
+  		for(Record record : pool){
+  			String rc_tag = record.getTag();
+  			String title = record.getTitle();
+  			String keywords = record.getKeywords();
+       	    String description = record.getDescription();
+       	    String document = title + keywords+ description;
+       	    for(int i=0; i<map.size(); i++){
+       	    	if(rc_tag.equals(tag[i])){
+       	    		if(document.length()>=2){
+               		    content = document.split(",");
+               		    numOfEveryTag[i] += content.length;
+               		    for(String word : content){
+               		    	if(map.get(i).containsKey(word))  map.get(i).put(word, map.get(i).get(word)+1.0);
+               		    	else  map.get(i).put(word, 1.0);
+               		    }
+               	    }
+       	    		break;
+       	    	}
+       	    }
+  		}
+  		for(int i=0; i<map.size(); i++)
+  			for(String key : map.get(i).keySet())
+                map.get(i).put(key, map.get(i).get(key)/numOfEveryTag[i]);
+  		
+  		return map;
+  	}
   	
 }
