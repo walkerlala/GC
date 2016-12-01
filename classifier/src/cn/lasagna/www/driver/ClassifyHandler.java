@@ -3,7 +3,7 @@ package cn.lasagna.www.driver;
 /**
  * Created by walkerlala on 16-10-24.
  */
-import cn.lasagna.www.classifier.ClassifierInterface;
+import cn.lasagna.www.classifier.ClassifierInterface; 
 import cn.lasagna.www.classifier.Preprocessor;
 import cn.lasagna.www.classifier.Record;
 import cn.lasagna.www.classifier.RecordPool;
@@ -13,7 +13,6 @@ import cn.lasagna.www.util.DBUtil;
 
 import java.sql.ResultSet;
 import java.sql.Statement;
-import java.util.*;
 
 import cn.lasagna.www.util.MyLogger;
 import org.apache.log4j.Logger;
@@ -181,7 +180,6 @@ public class ClassifyHandler {
                     }
                 }
 
-                preprocessData(dataPart);
                 //start to classify part of the data set
                 RecordPool partResult = classifer.classify(dataPart);
 
@@ -190,6 +188,7 @@ public class ClassifyHandler {
                         " domain_name, title, keywords, description, tag)" +
                         " VALUES(?, ?, ?, ?, ?, ?, ?) ";
                 for(Record part : partResult) {
+                	//System.out.println( part.getTag() );
                     //TODO: the `text` field maybe so larget that it slow down the program
                     //TODO: we can use ansej to remove html tags
                     resultSetDB.insert(storeSQL, part.getPage_id(),
@@ -217,21 +216,4 @@ public class ClassifyHandler {
 
     }
 
-    /* seperate word, remove stop word... */
-    boolean preprocessData(RecordPool dataPart) {
-        for(Record record : dataPart){
-            String kw = record.getKeywords();
-            String desc = record.getDescription();
-            String newKw = Preprocessor.generateWords(kw);
-            String newDesc = Preprocessor.generateWords(desc);
-            record.setKeywords(newKw);
-            record.setDescription(newDesc);
-        }
-        return true;
-    }
-
 }
-
-
-
-
