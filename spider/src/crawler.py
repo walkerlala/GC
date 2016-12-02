@@ -37,6 +37,8 @@ default_conf = {
     "crawler_table":"pages_table",
     }
 
+_pause_interval = 3
+_exceeded_try=10
 class Crawler(object):
     """ The crawler.
         Multiple threads would be started in method run() """
@@ -138,8 +140,6 @@ class Crawler(object):
                 tmp.append(self._buffer.pop())
             return tmp
 
-    _pause_interval = 3
-    _exceeded_try=10
     @staticmethod
     def req(url, **kwargs):
         page = requests.get(url, **kwargs)
@@ -157,26 +157,23 @@ class Crawler(object):
         #fake as 'Baidu Spider'. Can also fake as GoogleBot, or YoudaoBot,
         #but this maybe easily detected due to ip-mismatch
         #NOTE: According to RFC 7230, HTTP header names are case-INsensitive
-        #headers = {'User-Agent': 'Baidu Spider',
-        #           'Accept':'text/plain, text/html', #want only text
-        #           #' Requests would handle encoding and decoding for us
-        #          }
         headers={
                 'Accept':'text/plain, text/html', #want only text
-                "accept-encoding":"gzip, deflate, sdch",
-                "accept-language":"en-US,en;q=0.8",
-                "Cache-Control":"max-age=0",
-                "Cookie":"timezone=480; I2KBRCK=1; cookiePolicy=accept",
+                #"accept-encoding":"gzip, deflate, sdch",
+                #"accept-language":"en-US,en;q=0.8",
+                #"Cache-Control":"max-age=0",
+                #"Cookie":"timezone=480; I2KBRCK=1; cookiePolicy=accept",
                 #"Host":"www.tandfonline.com",
-                "Proxy-Connection":"keep-alive",
+                #"Proxy-Connection":"keep-alive",
                 #"Referer":"https://www.tandfonline.com",
-                "Upgrade-Insecure-Requests":"1",
-                "User-agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.94 Safari/537.36",
+                #"Upgrade-Insecure-Requests":"1",
+                #"User-agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.94 Safari/537.36",
                 #"User-Agent":"Google Bot",
+                "User-agent":"Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
                 }
 
         try:
-            response = req(resolved_url, headers=headers, timeout=self.crawling_timeout)
+            response = Crawler.req(resolved_url, headers=headers, timeout=self.crawling_timeout)
             self.log.info("Get response[%d]: [%s]" % (response.status_code, resolved_url))
             #check whether we get a plain text response
             #note that key in `response.headers` is case insensitive
@@ -267,16 +264,16 @@ class Crawler(object):
         protocal, domain = self.get_protocal_domain(origin_url)
 
         #useless file pattern (something like xxx.jpg, xxx.mp4, xxx.css, xxx.pdf, etc)
-        uf_pattern = re.compile(r'\..{0,5}')
+        uf_pattern = re.compile(r'\.jpg$|\.png|\.xml|\.mp4|\.mp3|\.css|\.pdf|\.svg')
         #unsupported protocal pattern(something like ftp://, sftp://, thunders://, etc)
-        up_pattern = re.compile(r'^.{0,8}:')
+        up_pattern = re.compile(r'^.{0,10}:')
         #tag link pattern
         tag_pattern = re.compile(r'\S*#\S*')
+        #we only support http/https protocal
+        sp_pattern = re.compile(r'http://|https://')
 
         outer_link_lists = []
         inner_link_lists = []
-        #we only support http/https protocal
-        sp_pattern = re.compile(r'http://|https://')
         for element in links:
             element = element.strip()
             if re.match(sp_pattern, element):  # begin with http/https
@@ -315,45 +312,42 @@ class Crawler(object):
             response.encoding is from the html reponse header. If we want to
             convert all the content we want to utf8, we have to use `get_encodings_from_content; """
         # resp.text is in unicode(type 'str')
+        # resp.content is in unicode(type 'bytes')
+        text = resp.text
+        # requests get html page encoding from HTTP Response header, if the
+        # Response header provide no info about encoding, then requests would
+        # default to 'ISO-8859-1'. But most of the time we can detect the
+        # encoding in html page content
+        if(resp.encoding == 'ISO-8859-1' and not 'ISO-8859-1' in resp.headers.get('Content-Type', '')):
+            try:
+                real_encoding = requests.utils.get_encodings_from_content(resp.text)[0]
+                text = resp.content.decode(real_encoding, 'ignore')
+            except Exception:
+                text = resp.content.decode('utf-8', 'ignore')
+        html_tree = etree.HTML(text)
+        kws = html_tree.xpath('//*/meta[re:test(@name, "[Kk]eywords?")]/@content', namespaces={'re': "http://exslt.org/regular-expressions"})
+        descs = html_tree.xpath('//*/meta[re:test(@name, "[Dd]escription")]/@content', namespaces={'re': "http://exslt.org/regular-expressions"})
+        kw = kws[0] if kws else ""
+        desc = descs[0] if descs else ""
+        kw = kw.encode('utf-8', 'ignore')
+        desc = desc.encode('utf-8', 'ignore')
+
         try:
             real_encoding = requests.utils.get_encodings_from_content(resp.text)[0]
-            text = resp.content.decode(real_encoding, "ignore").encode('utf-8')
+            utf8_text = resp.content.decode(real_encoding, "ignore").encode('utf-8')
         except Exception:
-            text = resp.content
-
-        def extract_kw_desc(text):
-            #these two extraction rule is far from complete. show build DOM tree to extract them
-            kws = re.findall(rb'<meta name="[Kk]eywords" [ \n\r]{1,3}content="(.*?)" [ \n\r]?/?>', text)
-            if not kws:
-                kws = re.findall(rb'<meta content="(.*?)" [ \n\r]{1,3}name="[Kk]eywords" [ \n\r]?/?>', text)
-
-            descs = re.findall(rb'<meta name="[Dd]escription" [ \n\r]{1,3}content="(.*?)" [ \n\r]?/?>', text)
-            if not descs:
-                descs = re.findall(rb'<meta content="(.*?)" [ \n\r]{1,3}name="[Dd]escription" [ \n\r]?/?>', text)
-
-            kw = kws[0] if kws else b""
-            desc = descs[0] if descs else b""
-            #kw = b""
-            #if kws:
-            #    kw = kws[0]
-            #desc = b""
-            #if descs:
-            #    desc = descs[0]
-            return kw, desc
+            utf8_text = resp.content
 
         page_url = bytes(resp.url, 'utf-8')
         _, domain_name = self.get_protocal_domain(resp.url)
         domain_name = bytes(domain_name, 'utf-8')
-        titles = re.findall(rb'<title>(.*?)</title>', text)
-        title = b""
-        if titles:
-            title = titles[0]
-        kw, desc = extract_kw_desc(text)
+        titles = re.findall(rb'<title>(.*?)</title>', utf8_text)
+        title = titles[0] if titles else b''
 
         self.db.update("INSERT INTO " + self.crawler_table + "(`page_url`, `domain_name`,"
                 "`title`, `text`, `keywords`, `description`) "
                 "VALUES (%s, %s, %s, %s, %s, %s);",
-                (page_url, domain_name, title, text, kw, desc))
+                (page_url, domain_name, title, utf8_text, kw, desc))
 
 if __name__ == "__main__":
     crawler = Crawler()

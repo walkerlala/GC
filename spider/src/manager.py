@@ -60,7 +60,7 @@ class PriQueue:
         self.domains_queue = {}  # which domain correspond to which crawler: domain <=> ip
         self.addr_domainNR = defaultdict(int)    # which crawler has how many domains
 
-        self.dominant_threshold = 5
+        self.dominant_threshold = 20
 
         self._lock = threading.Lock() #lock with many usages
 
@@ -98,7 +98,7 @@ class PriQueue:
             for line in f:
                 self.links.append(line.strip())
             self.links = list(set(self.links)) #hopefully that the list would get randomized
-        logger.info("PriQueue successfully get links from disk\n")
+        logger.info("PriQueue successfully get links from disk\n", Logger.STDOUT)
 
     def append(self, link):
         """ feed links into the internal prio queue. This would spread all
@@ -123,7 +123,7 @@ class PriQueue:
             #self.links_by_addr[addr].insert(index, link)
             self.insert_into(addr, link)
             self.domains_queue[domain] = addr
-            logger.info("append(): assigning domain[%s] to addr[%s]" % (domain, addr))
+            logger.info("append(): assigning domain[%s] to addr[%s]" % (domain, addr), Logger.STDOUT)
             self.addr_domainNR[addr] = self.addr_domainNR[addr] + 1
         self._release()
 
@@ -138,7 +138,8 @@ class PriQueue:
                 # assign this domain to this crawler, this might not be
                 # even/fair, but it wouldn't affect that much, so ok
                 self.domains_queue[domain] = addr
-                logger.info("get_by_addr(): assigning domain[%s] to addr[%s]" % (domain, addr))
+                logger.info("get_by_addr(): assigning domain[%s] to addr[%s]" % (domain, addr),
+                        Logger.STDOUT)
                 self.addr_domainNR[addr] = self.addr_domainNR[addr] + 1
             self._release()
             return link
@@ -152,10 +153,12 @@ class PriQueue:
                 self.set_pos(addr)
                 self.addr_domainNR[addr] = 0  # "register" this crawler
                 self._release()
-                time.sleep(60) # sleep() would halt only current thread, not the entire process ?
+                time.sleep(
+                    60
+                )  # sleep() would halt only current thread, not the entire process
                 return 'https://www.oh-my-url-you-are-definitely-going-to-fail.com'
             elif len(self.links_by_addr[addr]):
-                logger.info("returning one links to [%s]" % addr)
+                logger.info("returning one links to [%s]" % addr, Logger.STDOUT)
                 link = self.links_by_addr[addr].pop()
                 self._release()
                 return link
@@ -318,11 +321,13 @@ class Manager:
                 if (self.crawling_width < self.prio_que.domains_nr()):
                     self.focusing = False  # we have enogh domains now, so not focusing anymore
                     logger.info("Not focusing anymore. crawling_width[%d],"
-                            "domains_nr[%d]\n" % (self.crawling_width, self.prio_que.domains_nr()))
+                            "domains_nr[%d]\n" % (self.crawling_width, self.prio_que.domains_nr()),
+                            Logger.STDOUT)
                 #crawler would ask whether or not to be focusing
                 if self.get_conn_type(conn) == self.ASKFOCUSING:
                     if self.focusing:
-                        logger.info("manager sending back FOCUSING message\n")
+                        logger.info("manager sending back FOCUSING message\n",
+                                Logger.STDOUT)
                         conn.sendall(b'OK')
                     else:
                         conn.sendall(b'NO') # can only send back two bytes
@@ -348,7 +353,7 @@ class Manager:
         except Exception as e:
             #不能再向上抛异常了，因为这是多线程模型，
             #异常应该在本函数内处理
-            logger.info("Exception:[%s]" % str(e))
+            logger.info("Exception:[%s]" % str(e), Logger.STDERR)
         finally:
             conn.close()
 
@@ -369,7 +374,8 @@ class Manager:
 
     def run(self):
         """ start manager """
-        logger.info("manager start running at: [%s]\n" % str(datetime.datetime.now()))
+        logger.info("manager start running at: [%s]\n" % str(datetime.datetime.now()),
+                Logger.STDOUT)
         while(True):
             #only want a fix number of thread in this program
             if (len(self.thread_list) > self.thread_num):
@@ -377,7 +383,7 @@ class Manager:
                     thread.join()
                 self.thread_list = []
             conn, addr = self.sock.accept()
-            logger.info("Connection established: %s\n" % str(addr))
+            logger.info("Connection established: %s\n" % str(addr), Logger.STDOUT)
             t = threading.Thread(target=self.handle_connection, args=(conn, addr))
             #t.daemon = True
             self.thread_list.append(t)
