@@ -20,8 +20,9 @@ public class RecordPool implements Iterable<Record> {
         dataInternal.add(record);
     }
 
-    public void addAll(Collection clt){
-        dataInternal.addAll(clt);
+    public void addAll(RecordPool rp){
+        for(Record rc : rp)
+        	dataInternal.add(rc);
     }
 
     public Record pop(){

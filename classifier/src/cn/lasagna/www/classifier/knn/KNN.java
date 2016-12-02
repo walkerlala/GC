@@ -1,107 +1,184 @@
 package cn.lasagna.www.classifier.knn;
 
 /**
- * Created by walkerlala on 16-10-23.
+ * Created by walkerlala on 16-10-23. 
  */
-import cn.lasagna.www.classifier.Record;
+import cn.lasagna.www.classifier.Record;   
 import cn.lasagna.www.classifier.RecordPool;
 import cn.lasagna.www.util.Configuration;
-import org.ansj.dic.LearnTool;
-import org.ansj.domain.Term;
-import org.ansj.splitWord.analysis.NlpAnalysis;
-
+import cn.lasagna.www.util.DBUtil;
+import cn.lasagna.www.util.MyLogger;
 import java.util.Collections;
+import java.sql.ResultSet;
+import java.sql.Statement;
 import java.util.*;
 
 import cn.lasagna.www.classifier.ClassifierInterface;
+import cn.lasagna.www.classifier.CompareRecord;
+import cn.lasagna.www.classifier.CompareRecordPool;
+import cn.lasagna.www.classifier.Preprocessor;
 
 public class KNN implements ClassifierInterface {
-    private RecordPool KnnSet;
-    private int K = Configuration.K;
-    private double keywordsWeight = Configuration.KNNKeywordsWeight;   // see `caculateJaccard()'
+    private CompareRecordPool KnnSet;   //training_set
+    private int K = Configuration.K;  //find K nearest
+    private double keywordsWeight = Configuration.KNNKeywordsWeight;  
+    private double titleWeight = Configuration.KNNTitleWeight;
+    private double descriptionWeight = Configuration.KNNDescriptionWeght;
+    
+     MyLogger logger = new MyLogger(this.getClass());
+    
+    private DBUtil tfidfDB = new DBUtil();
+    
+    public KNN(){
+    	logger.info("Classifier KNN initiating", MyLogger.STDOUT);
+    	try {
+            // connect training database
+            this.tfidfDB.connectDB(Configuration.tfidfDBUrl, Configuration.tfidfDBUser,
+                                          Configuration.tfidfDBPasswd, Configuration.tfidfDBName);
 
+        } catch (Exception e){
+            e.printStackTrace();
+        }
+
+    }
+    
     public boolean buildTrainingModel(RecordPool trainingSet) {
         //process the content of `keywords` tag and `description` tag
-        this.KnnSet = new RecordPool();
-        Record newRecord;
+        this.KnnSet = new CompareRecordPool();
 
         for (Record record : trainingSet) {
-            newRecord = new Record();
-            newRecord.putAll(record);
-
-            //parse `keywords` tag to generate words list
-            String keywords = record.getKeywords();
-            String newKeywords = KNN.generateWords(keywords);
-            newRecord.setKeywords(newKeywords);
-
-            // parse `descriptios` to generate clean words list
-            String description = record.getDescription();
-            String newDescription = KNN.generateWords(description);
-            record.setDescription(newDescription);
-
-            this.KnnSet.add(record);
-        }
+                CompareRecord comRecord = tfidfValue(record);               
+            this.KnnSet.add(comRecord);
+        }//end for
 
         return true;
     }
+    
+    private CompareRecord tfidfValue(Record record){ 
+    	//从tfidf数据库中查出一组记录的一组tfidf值，再根据keyword、title、description建立HashMap后返回比较记录
+    	String keywords = record.getKeywords();   
+           String description = record.getDescription();
+           String title = record.getTitle();
+           CompareRecord comRecord = new CompareRecord();
+           
+           HashMap<String,Double> keywordMap = new HashMap<String,Double>();
+           HashMap<String,Double> titleMap = new HashMap<String,Double>();
+           HashMap<String,Double> descriptionMap = new HashMap<String,Double>();
+         
+    	String pageID = record.getPage_id();
+    	String selectSQL = "SELECT * FROM  `tfidf_training` WHERE page_id = " + pageID;
+    	ResultSet rs;
+    	Statement rsStatement;
+    	// load tfidf value into each hash map
+    	try {
+			rs = tfidfDB.query(selectSQL);
+			rsStatement = rs.getStatement();
+			rs.beforeFirst();
+			while(rs.next()){
+				String word = rs.getString("word_value");
+				double tfidf_value = rs.getDouble("tf_idf");
+				if( keywords.contains(word))
+					keywordMap.put(word, tfidf_value);
+				if(description.contains(word))
+					descriptionMap.put(word, tfidf_value);
+				if(title.contains(word))
+					titleMap.put(word, tfidf_value);
+					
+			}//end while			
+			rsStatement.close();
+			rs.close();
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			logger.info("Can't select record value from tfidfDB. ",MyLogger.STDOUT);
+			e.printStackTrace();
+		}
+    	
+    	
+    	//Calculate each vector length if the item exist, otherwise set the vector null
+    	if (record.getDescription() != "")
+    		descriptionMap.put("0", calculateVector(descriptionMap));
+    	else
+    		descriptionMap = null;
+    	if(record.getKeywords() != "")
+    		keywordMap.put("0",calculateVector(keywordMap));
+    	else
+    		keywordMap = null;
+    	if(record.getTitle() != "")
+    		titleMap.put("0", calculateVector(titleMap));
+    	else
+    		titleMap = null;
+    	
+    	//set compare record
+		comRecord.setDescriptonMap(descriptionMap);
+		comRecord.setKeywordMap(keywordMap);
+		comRecord.setTitleMap(titleMap);
+		comRecord.setPage_id(pageID);
+		comRecord.setTag(record.getTag());
 
-    /* return word list seperate by . */
-    public static String generateWords(String str){
-        List<Term> termList = NlpAnalysis.parse(str).getTerms();
-
-        //remove duplicate
-        Set<Term> termSet = new HashSet<>();
-        termSet.addAll(termList);
-        termList.clear();
-        termList.addAll(termSet);
-
-        StringBuilder newStr = new StringBuilder();
-        String termNameTrim;
-        String termNatureStr;
-        for(Term term:termList){
-            try {
-                termNameTrim = term.getName().trim();
-                termNatureStr = term.getNatureStr();
-            }catch (Exception e){
-                e.printStackTrace();
-                continue;
-            }
-
-            // only those term which length is greater than 2 make sense
-            // alternatively we can use a `removeStopWord()' function to
-            // remove stop word such as ‘的', '得'，'了'...
-            if(termNatureStr != "null" && termNameTrim.length() >= 2 && termNatureStr.contains("n")){
-                newStr.append(termNameTrim.toUpperCase() + ",");
-            }
-        }
-
-        return newStr.toString();
+    	return comRecord;
     }
-
+    
+    private double calculateVector(HashMap<String,Double> map){
+    	ArrayList<Double>  value = new ArrayList<Double>(map.values());
+    	double sum = 0;
+    	for( int i = 0, length = value.size(); i < length; i ++)
+    		sum = sum + value.get(i);
+    	
+    	return Math.sqrt(sum);
+    }
+  
+    public CompareRecord buildDataModel(Record record){
+    	//use data set record build compare record, the value of hash map is tf value.(词频）
+    	CompareRecord comRecord = new CompareRecord();
+    	String pageID = record.getPage_id();
+    	
+    	//Paraphrases data sample use preprocessor class function
+    	HashMap<String,Double> keywordMap = Preprocessor.getWordFre(record.getKeywords());   
+           HashMap<String,Double> titleMap = Preprocessor.getWordFre(record.getTitle());
+           HashMap<String,Double> descriptionMap = Preprocessor.getWordFre(record.getDescription());
+    	
+    	//Calculate and store vector length in order use it directly later
+    	descriptionMap.put("0", calculateVector(descriptionMap));
+    	keywordMap.put("0",calculateVector(keywordMap));
+    	titleMap.put("0", calculateVector(titleMap));
+    	
+    	//set compare record
+		comRecord.setDescriptonMap(descriptionMap);
+		comRecord.setKeywordMap(keywordMap);
+		comRecord.setTitleMap(titleMap);
+		comRecord.setPage_id(pageID);
+    	return comRecord;
+      }
+    
     public RecordPool classify(RecordPool dataSet) {
-        RecordPool KNearest;
-        RecordPool classifiedSet = new RecordPool();
-        Record newRecord;
+    	//classify a set of data at once
+           CompareRecordPool KNearest;
+           RecordPool classifiedSet = new RecordPool();
+           Record dataRecord;
+         
         for (Record tuple : dataSet) {
-            newRecord = new Record();
-            newRecord.putAll(tuple);
-            KNearest = getKNearest(newRecord);
-            String tag = voteForTag(KNearest);
-            newRecord.setTag(tag);  // this should change `dataSet`
-            classifiedSet.add(newRecord);
+            dataRecord = new Record();
+            dataRecord.putAll(tuple);
+                 CompareRecord dataComRecord =  buildDataModel(dataRecord);
+            //classify
+            KNearest = getKNearest(dataComRecord);
+                String tag = voteForTag(KNearest);
+            
+            dataRecord.setTag(tag);  // this should change `dataSet`
+            classifiedSet.add(dataRecord);
         }
         return classifiedSet;
     }
 
-    private RecordPool getKNearest(Record record) {
-        //first sort the list in descending according to the distance to `tuple`(we use Jaccard coefficient here
+    private CompareRecordPool getKNearest(final CompareRecord comDataRecord) {
+        //first sort the list in descending according to the distance to `tuple`(we use cosine coefficient here
         try {
-            this.KnnSet.sort(new Comparator<Record>() {
-                @Override
-                public int compare(Record o1, Record o2) {
+            this.KnnSet.sort( new Comparator<CompareRecord>() {
+                	@Override
+                public int compare(CompareRecord o1, CompareRecord o2) {
                     // -1 -- less than, 1 -- greater than, 0 -- equal
-                    double o1Result = calculateJaccard(o1, record);
-                    double o2Result = calculateJaccard(o2, record);
+                    double o1Result = calculateCos(o1, comDataRecord);
+                    double o2Result = calculateCos(o2, comDataRecord);
                     return o1Result > o2Result ? -1 : (o1Result < o2Result ? 1 : 0);
                 }
             });
@@ -109,7 +186,7 @@ public class KNN implements ClassifierInterface {
             e.printStackTrace();
         }
 
-        RecordPool KnnPart = new RecordPool();
+        CompareRecordPool KnnPart = new CompareRecordPool();
         int round = (this.K <= this.KnnSet.size()) ? this.K : this.KnnSet.size();
         for (int i = 0; i < round; i++) {
             KnnPart.add(this.KnnSet.get(i));
@@ -174,18 +251,46 @@ public class KNN implements ClassifierInterface {
         return result;
 
     }
+    
+    private double calculateCos(CompareRecord o1, CompareRecord o2){
+    	double cos = 0.0;
+    	double keyword_cos = compareMap(o1.getKeyword(), o2.getKeyword());
+    	double description_cos = compareMap(o1.getDescripton(), o2.getDescripton());
+    	double title_cos = compareMap(o1.getTitle(), o2.getTitle());
+    	cos = keywordsWeight * keyword_cos + titleWeight * title_cos + descriptionWeight* description_cos;
+    	return cos;
+    }
+    
+    private double compareMap(HashMap<String,Double> map1, HashMap<String,Double> map2){ 	
+    	if(  (map1 == null) || (map2 == null) )
+    		return 0.0;
+    	
+    	double cos = 0;	
+    	double map1_length = map1.get("0");
+    	double map2_length = map2.get("0");
+    	double similarity = 0;
+    	for( String word : map1.keySet()){
+    		if(word == "0")
+    			continue;
+    		if(map2.containsKey(word))
+    			similarity = similarity + map1.get(word) * map2.get(word);
+    	}
+    	cos = similarity / (map1_length * map2_length);
+    	return cos;
+    }
 
-    private String voteForTag(RecordPool KNearest) {
+    
+    private String voteForTag(CompareRecordPool KNearest) {
         Map<String, Integer> tags = new HashMap<>();
-        for(Record record : KNearest){
-            String tag = record.getTag();
-            tags.merge(tag, 1, (a,b) -> a + b);
+        for(CompareRecord comRecord : KNearest){
+        	String tag = comRecord.getTag();
+            tags.merge(tag, 1, (a,b) ->  a + b);//统计tag数
         }
 
         //sort by value to get the most vote
         List<Map.Entry<String, Integer>> list = new LinkedList<>(tags.entrySet());
         Collections.sort(list, new Comparator<Map.Entry<String, Integer>>() {
-            @Override
+            	@Override
             public int compare(Map.Entry<String, Integer> o1, Map.Entry<String, Integer> o2) {
                 return -o1.getValue().compareTo(o2.getValue());
             }
@@ -193,8 +298,3 @@ public class KNN implements ClassifierInterface {
         return list.get(0).getKey();
     }
 }
-
-
-
-
-

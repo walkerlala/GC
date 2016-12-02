@@ -18,7 +18,7 @@ public class DBUtil {
         //default setting here
         this.driver = "com.mysql.jdbc.Driver";
         this.username = "root";
-        this.password = "root324";
+        this.password = "123456";
         this.dbUrl    =  "jdbc:mysql://localhost:3306";
     }
 

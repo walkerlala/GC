@@ -5,7 +5,7 @@ package cn.lasagna.www.util;
  */
 
 import cn.lasagna.www.classifier.knn.KNN;
-import org.jcp.xml.dsig.internal.dom.DOMUtils;
+//import org.jcp.xml.dsig.internal.dom.DOMUtils;
 
 import java.io.BufferedInputStream;
 import java.io.FileInputStream;
@@ -30,6 +30,11 @@ public class Configuration {
     public static final String trainingSetDBUser;
     public static final String trainingSetDBPasswd;
     public static final String trainingSetDBName;
+    
+    public static final String tfidfDBUrl;
+    public static final String tfidfDBUser;
+    public static final String tfidfDBPasswd;
+    public static final String tfidfDBName;
 
     public static final String targetDBUrl;
     public static final String targetDBUser;
@@ -39,6 +44,10 @@ public class Configuration {
     public static final String classifier;
     public static final int K;
     public static final double KNNKeywordsWeight;
+    public static final double KNNTitleWeight;
+    public static final double KNNDescriptionWeght;
+    
+    public static final int numOfTag;
 
     //instantiate
     static {
@@ -61,6 +70,11 @@ public class Configuration {
         trainingSetDBUser = prop.getProperty("trainingDBUser");
         trainingSetDBPasswd = prop.getProperty("trainingDBPasswd");
         trainingSetDBName = prop.getProperty("trainingDBName");
+        
+        tfidfDBUrl = prop.getProperty("tfidfDBUrl");
+        tfidfDBUser = prop.getProperty("tfidfDBUser");
+        tfidfDBPasswd = prop.getProperty("tfidfDBPasswd");
+        tfidfDBName = prop.getProperty("tfidfDBName");
 
         targetDBUrl = prop.getProperty("targetDBUrl");
         targetDBUser = prop.getProperty("targetDBUser");
@@ -70,6 +84,9 @@ public class Configuration {
         classifier = prop.getProperty("classifier");
         K = Integer.valueOf(prop.getProperty("K"));
         KNNKeywordsWeight = Double.valueOf(prop.getProperty("KNNKeywordsWeight"));
+        KNNTitleWeight = Double.valueOf(prop.getProperty("KNNTitleWeight"));
+        KNNDescriptionWeght = Double.valueOf(prop.getProperty("KNNDescriptionWeght"));
+        numOfTag = Integer.valueOf(prop.getProperty("numOfTag"));
     }
 
 }
