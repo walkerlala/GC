@@ -27,16 +27,40 @@ public class Preprocessor {
 			for(int i=0; i<numOfTag; i++){
 				switch(i){
 				case 0:
-					tag[i] = "Èí¼þÏÂÔØ";
+					tag[i] = "æ–°é—»";
 					break;
 				case 1:
-					tag[i] = "ÐÅÏ¢×ÊÑ¶";
+					tag[i] = "å°è¯´";
 					break;
 				case 2:
-					tag[i] = "ÐÂÎÅ";
+					tag[i] = "è´­ç‰©";
 					break;
 				case 3:
-					tag[i] = "²©¿ÍÂÛÌ³";
+					tag[i]= "åŒ»ç–—";
+					break;
+				case 4:
+					tag[i] = "è§†é¢‘";
+					break;
+				case 5:
+					tag[i] = "ç¤¾äº¤";
+					break;
+				case 6:
+					tag[i] = "æ¸¸æˆ";
+					break;
+				case 7:
+					tag[i] = "æ—…æ¸¸";
+					break;
+				case 8:
+					tag[i] = "æœåŠ¡";
+					break;
+				case 9:
+					tag[i] = "ç½‘ç»œè¯¾ç¨‹";
+					break;
+				case 10:
+					tag[i] = "éŸ³ä¹";
+					break;
+				case 11:
+					tag[i] = "è½¯ä»¶ä¸‹è½½";
 					break;
 				default:
 					tag[i] = "";
@@ -229,7 +253,7 @@ public class Preprocessor {
 
             // only those term which length is greater than 2 make sense
             // alternatively we can use a `removeStopWord()' function to
-            // remove stop word such as ¡®µÄ', 'µÃ'£¬'ÁË'...
+            // remove stop word such as â€˜çš„', 'å¾—'ï¼Œ'äº†'...
             if(termNatureStr != "null" && termNameTrim.length() >= 2 && termNatureStr.contains("n")){
                 newStr.append(termNameTrim.toUpperCase() + ",");
             }
@@ -238,13 +262,13 @@ public class Preprocessor {
     }
     
     //calculate every single word's frequency in a document
-    public static HashMap<String, Integer>getWordFre(String document){
+    public static HashMap<String, Double>getWordFre(String document){
     	document = generateWords(document);
-		HashMap<String, Integer> map = new HashMap<String, Integer>();
+		HashMap<String, Double> map = new HashMap<String, Double>();
 		String[] content = document.split(",");
 		for(String word : content){
 			if(map.containsKey(word)) map.put(word, map.get(word)+1);
-			else map.put(word, 1);
+			else map.put(word, 1.0);
 		}
     	return map;
     }
