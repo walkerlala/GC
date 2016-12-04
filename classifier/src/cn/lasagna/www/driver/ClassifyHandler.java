@@ -8,6 +8,7 @@ import cn.lasagna.www.classifier.Preprocessor;
 import cn.lasagna.www.classifier.Record;
 import cn.lasagna.www.classifier.RecordPool;
 import cn.lasagna.www.classifier.knn.KNN;
+import cn.lasagna.www.classifier.Bayes.Bayes;
 import cn.lasagna.www.util.Configuration;
 import cn.lasagna.www.util.DBUtil;
 
@@ -64,6 +65,8 @@ public class ClassifyHandler {
         switch(classiferName){
             case "knn":
                 this.classifer = new KNN();
+            case "bayes":
+                this.classifer = new Bayes();
                 //case "decisionTree":
         }
         logger.info("Classifier: " + this.classiferName, MyLogger.STDOUT);
@@ -121,6 +124,10 @@ public class ClassifyHandler {
         try {
             dataSetDB.connectDB(Configuration.sourceDBUrl, Configuration.sourceDBUser,
                     Configuration.sourceDBPasswd, Configuration.sourceDBName);
+        	
+        	//先用训练集测试
+            //dataSetDB.connectDB(Configuration.trainingSetDBUrl, Configuration.trainingSetDBUser,
+             //       Configuration.trainingSetDBPasswd, Configuration.trainingSetDBName);
             resultSetDB.connectDB(Configuration.targetDBUrl, Configuration.targetDBUser,
                                    Configuration.targetDBPasswd, Configuration.targetDBName);
         } catch (Exception e) {
@@ -164,7 +171,16 @@ public class ClassifyHandler {
             while(rs.next()) {
                 dataPart = new RecordPool();
                 Record record;
-                for (int i = 0; i < roundNum; i++) {
+                record = new Record();
+                record.setPage_id(rs.getString("page_id"));
+                record.setPage_url(rs.getString("page_url"));
+                record.setDomain_name(rs.getString("domain_name"));
+                record.setTitle(rs.getString("title"));
+                record.setKeywords(rs.getString("keywords"));
+                record.setDescription(rs.getString("description"));
+                //record.setText(rs.getString("text"));
+                dataPart.add(record);
+                for (int i = 0; i < roundNum-1; i++) {
                     if (rs.next()) {
                         record = new Record();
                         record.setPage_id(rs.getString("page_id"));
