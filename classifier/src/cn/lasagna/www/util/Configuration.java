@@ -48,6 +48,18 @@ public class Configuration {
     public static final double KNNDescriptionWeght;
     
     public static final int numOfTag;
+    public static final String tag0;
+    public static final String tag1;
+    public static final String tag2;
+    public static final String tag3;
+    public static final String tag4;
+    public static final String tag5;
+    public static final String tag6;
+    public static final String tag7;
+    public static final String tag8;
+    public static final String tag9;
+    public static final String tag10;
+    public static final String tag11;
 
     //instantiate
     static {
@@ -87,6 +99,19 @@ public class Configuration {
         KNNTitleWeight = Double.valueOf(prop.getProperty("KNNTitleWeight"));
         KNNDescriptionWeght = Double.valueOf(prop.getProperty("KNNDescriptionWeght"));
         numOfTag = Integer.valueOf(prop.getProperty("numOfTag"));
+        
+        tag0 = prop.getProperty("tag0");
+        tag1 = prop.getProperty("tag1");
+        tag2 = prop.getProperty("tag2");
+        tag3 = prop.getProperty("tag3");
+        tag4 = prop.getProperty("tag4");
+        tag5 = prop.getProperty("tag5");
+        tag6 = prop.getProperty("tag6");
+        tag7 = prop.getProperty("tag7");
+        tag8 = prop.getProperty("tag8");
+        tag9 = prop.getProperty("tag9");
+        tag10 = prop.getProperty("tag10");
+        tag11 = prop.getProperty("tag11");
     }
 
 }
