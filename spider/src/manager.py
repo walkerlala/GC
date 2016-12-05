@@ -3,6 +3,11 @@
 
 # pylint: disable=superfluous-parens,invalid-name,broad-except
 
+## TODO
+# 1. identify crawler by (ip, port) pair
+# 2. use hash to assign domain name
+# 3. implement memory mapping enable reentrance
+
 """ master node """
 
 import socket
@@ -167,15 +172,15 @@ class PriQueue:
 
     def insert_into(self, addr, link):
         """ insert this link into proper list, in a proper order """
-        # if there are too many link of the same domain in list, then we should
-        # remove some so that others links from other domains can have chances
-        # to be crawled
         self.links_by_addr[addr].append(link)
         self.links_by_addr[addr] = sorted(self.links_by_addr[addr], key=lambda x: x[::-1])
 
     def remove_dominant(self):
         """ remove links of dominant domain. A domain is dominant if most
             of links in prio_que are of this domain """
+        # if there are too many link of the same domain in list, then we should
+        # remove some so that others links from other domains can have chances
+        # to be crawled
         self._acquire()
         for k, v in self.links_by_addr.items():
             domain_NR = defaultdict(int)
@@ -227,16 +232,19 @@ class Manager:
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.listen(self.listen_num)
 
+        _blmftr_record = self.conf.get("blmftr_record")
+        _start_fresh = False if self.conf.get("continuous_crawl") == "yes" else True
         #bloom_filter里面存放已经爬过的链接(或许没有爬成功)
         self.bloom_filter = Bloom_filter.Bloom_filter(10000,
                                          0.001,  #error rate
-                                         filename=("/tmp/blmftr_tmp", -1),
-                                         start_fresh=True)
+                                         filename=(_blmftr_record, -1),
+                                         start_fresh=_start_fresh)
         self.bf_lock = threading.Lock() #lock to access bloom_filter
 
         self.prio_que = PriQueue(self.links_file)          #manager's priority queue
         self.prio_que.get_links_from_disk() #initially get links from disk
-        #self.domains_nr = self.prio_que.domains_nr()
+        for l in self.prio_que.links:  # add to bloom filter
+            self.bloom_filter.add(l)
         self.prio_ful_threshold = self.conf.get("prio_ful_threshold")
 
         self.thread_list = []        #list of threads in manager
@@ -295,6 +303,7 @@ class Manager:
                         self.bf_acquire()
                         #加入bloom_filter之中，否则这个链接会被重爬
                         self.bloom_filter.add(key)
+                        crawled_links.append(key)
                         self.bf_release()
                     else:
                         self.bf_acquire()
@@ -305,11 +314,13 @@ class Manager:
                             for sub_link in value:
                                 if sub_link not in self.bloom_filter:
                                     self.prio_que.append(sub_link)
-                            # remove links of dominant domain so that links
-                            # from other domains have an opportunity to be
-                            # crawled
-                            self.prio_que.remove_dominant()
                         self.bf_release()
+
+                # remove links of dominant domain so that links
+                # from other domains have an opportunity to be
+                # crawled
+                if self.focusing:
+                    self.prio_que.remove_dominant()
 
                 #write all the link to `self._links_track`
                 with self._links_track_lock:
@@ -318,16 +329,14 @@ class Manager:
 
             elif (method == self.REQUEST): #crawler request some links
                 conn.sendall(b'OK')
-                if (self.crawling_width < self.prio_que.domains_nr()):
-                    self.focusing = False  # we have enogh domains now, so not focusing anymore
-                    logger.info("Not focusing anymore. crawling_width[%d],"
-                            "domains_nr[%d]\n" % (self.crawling_width, self.prio_que.domains_nr()),
-                            Logger.STDOUT)
+                if (self.prio_que.domains_nr() > self.crawling_width):
+                    self.focusing = True  # we have enogh domains now, so now we do focused-crawling
+                    logger.info("[[Focused-crawling]] crawling_width[%d], domains_nr[%d]\n" % (
+                        self.crawling_width, self.prio_que.domains_nr()),
+                        Logger.STDOUT)
                 #crawler would ask whether or not to be focusing
                 if self.get_conn_type(conn) == self.ASKFOCUSING:
                     if self.focusing:
-                        logger.info("manager sending back FOCUSING message\n",
-                                Logger.STDOUT)
                         conn.sendall(b'OK')
                     else:
                         conn.sendall(b'NO') # can only send back two bytes

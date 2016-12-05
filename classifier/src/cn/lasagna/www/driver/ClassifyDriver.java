@@ -14,6 +14,7 @@ public class ClassifyDriver {
         System.out.println("Driver start running at " + launchTime);
 
         Preprocessor pre = new Preprocessor();
+        pre.preprocess();
         
         ClassifyHandler classifyHandler = new ClassifyHandler();
         classifyHandler.handle();

@@ -61,7 +61,7 @@ st() {
     show
 }
 
-# creating log dir
+# create log dir
 mkdir -p log
 
 if [[ $# != 1 ]]

@@ -2,27 +2,27 @@
 #coding:utf-8
 
 import Bloom_filter
-from unbuffered_output import uopen
+import string
+import random
 
-bf = Bloom_filter.Bloom_filter(10000, 0.001, filename=("/tmp/blmt",-1), start_fresh=True)
+b = Bloom_filter.Bloom_filter(10000, 0.001, filename=("/tmp/blmt",-1), start_fresh=True)
 
-num = 100
+sl = []
+for _ in range(500000):
+    chars = ''.join(random.choice(string.ascii_letters + string.digits + "%_-/?#$!()[]*") for i in range(120))
+    sl.append(chars)
 
-for i in range(1000):
-    string = str(num + i)
-    bf.add(string)
+print("Generate random string completed")
 
-count = 0
-for i in range(1000):
-    string = str(num + i)
-    if string in bf:
-        count = count + 1
-print("Num in bf is %d\n" % count)
+for s in sl:
+    b.add(s)
 
-hit = 0
-for i in range(1000):
-    string = str(num + i)
-    if string not in bf:
-        hit = hit + 1
-print("Num not in bf is %d\n" % hit)
+print("Added all to bloom filter")
 
+wrong_count = 0
+for s in sl:
+    if s not in b:
+        wrong_count += 1
+        print("wrong-count: %d " % wrong_count)
+
+print("test completed. wrong_count: %d " % wrong_count)

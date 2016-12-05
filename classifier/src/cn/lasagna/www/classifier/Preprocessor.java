@@ -8,75 +8,77 @@ import cn.lasagna.www.util.*;
 //import org.ansj.dic.LearnTool;
 import org.ansj.domain.Term;
 import org.ansj.splitWord.analysis.NlpAnalysis;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
 
 public class Preprocessor {
 
 	private static HashMap<String, Integer> wordSample;   //hashmap: key-word, value-the number of sample that contains this word 
 	private static int trainingSamples;  //the number of Samples in trainingSet
 	public static int numOfTag = Configuration.numOfTag;
-	public static String[] tag =  new String[numOfTag];
+	public String[] tags =  Configuration.tags;
 	 MyLogger logger = new MyLogger(this.getClass());
 	private DBUtil trainingSetDB = new DBUtil();
+	private DBUtil dataSetDB = new DBUtil();
 	private DBUtil tfidfDB = new DBUtil();
 	
 	public Preprocessor(){
 		logger.info("Preprocessor initiating", MyLogger.STDOUT);
-		try{
-			wordSample = new HashMap<String, Integer>();
-			trainingSamples = 0;
-			for(int i=0; i<numOfTag; i++){
-				switch(i){
-				case 0:
-					tag[i] = "Èí¼þÏÂÔØ";
-					break;
-				case 1:
-					tag[i] = "ÐÅÏ¢×ÊÑ¶";
-					break;
-				case 2:
-					tag[i] = "ÐÂÎÅ";
-					break;
-				case 3:
-					tag[i] = "²©¿ÍÂÛÌ³";
-					break;
-				default:
-					tag[i] = "";
-					break;
-				}
-			}
-			
+		wordSample = new HashMap<String, Integer>();
+		trainingSamples = 0;
+	}
+
+	public void preprocess(){
+		try {
 			this.trainingSetDB.connectDB(Configuration.trainingSetDBUrl, Configuration.trainingSetDBUser,
-                    Configuration.trainingSetDBPasswd, Configuration.trainingSetDBName);
+					Configuration.trainingSetDBPasswd, Configuration.trainingSetDBName);
 			logger.info("trainingSetDB connected. Going to load and preprocess trainingSet", MyLogger.STDOUT);
-			
-			this.tfidfDB.connectDB(Configuration.tfidfDBUrl, Configuration.tfidfDBUser, 
+
+			this.tfidfDB.connectDB(Configuration.tfidfDBUrl, Configuration.tfidfDBUser,
 					Configuration.tfidfDBPasswd, Configuration.tfidfDBName);
 			logger.info("tfidfDB connected. Going to compute the tf-idf value for every single word", MyLogger.STDOUT);
-			
-		}catch(Exception e){
+
+			this.dataSetDB.connectDB(Configuration.sourceDBUrl, Configuration.sourceDBUser,
+					Configuration.sourceDBPasswd, Configuration.sourceDBName);
+			logger.info("dataSetDB connected. Going to load and preprocess trainingSet", MyLogger.STDOUT);
+		} catch (Exception e){
+			logger.info("Exception connecting database");
 			e.printStackTrace();
+			return;
 		}
-		
-		if(preprocess())
-			 System.out.println("Preprocess data successfully!");
-		else
-			System.out.println("Preprocess data failed!");
-		
+
+		if(preprocessTrainingDB()){
+			logger.info("Successfully preprocess trainingSet and calculate TF-IDF", MyLogger.STDOUT);
+		}else{
+			logger.info("FAIL preprocess trainingSet", MyLogger.STDERR);
+		}
+
+		if(preprocessDataSetDB()){
+			logger.info("Successfully preprocess dataSetDB", MyLogger.STDOUT);
+		}else{
+			logger.info("FAIL preprocess dataSetDB", MyLogger.STDERR);
+		}
+
 		try{
 			trainingSetDB.closeDBConn();
 			tfidfDB.closeDBConn();
-		}catch(Exception e){
+			dataSetDB.closeDBConn();
+		}catch (Exception e){
+			logger.info("Exception closing database");
 			e.printStackTrace();
 		}
 	}
 	
 	//preprocess the training set,
 	//include: split the words,calculate the tf-idf value for different classifier
-	private boolean preprocess(){
+	private boolean preprocessTrainingDB(){
 		String selectSQL = "SELECT * FROM `pages_table`";
 		ResultSet selectRs;
 		Statement selectSt;
 		
 		try{
+
 			selectRs = trainingSetDB.query(selectSQL);
 			selectSt = selectRs.getStatement();
 			Record record;
@@ -93,8 +95,9 @@ public class Preprocessor {
 	                record.setTitle(generateWords(selectRs.getString("title")));
 	                record.setKeywords(generateWords(selectRs.getString("keywords")));
 	                record.setDescription(generateWords(selectRs.getString("description")));
+				    record.setNormal_content(generateWords(htmlBodyText(selectRs.getString("text"))));
 	                dataPart.add(record);
-	            }
+			 }
 			 
 			 selectSt.close();
 			 selectRs.close();
@@ -106,18 +109,60 @@ public class Preprocessor {
 				 String title = part.getTitle();
 				 String keywords = part.getKeywords();
 				 String description = part.getDescription();
-				 String updateSQL = "UPDATE " + table + " SET  title='" + title+ "',  keywords='" + keywords + 
-						 "', description='" + description + "' WHERE  page_id='" + id + "'";
-				 trainingSetDB.modify(updateSQL);
+				 String normal_content = part.getNormal_content();
+				 String updateSQL = "UPDATE ? SET title = ?, keywords = ?, description = ?, normal_content = ? WHERE page_id = ? ";
+				 trainingSetDB.modify(updateSQL, table, title, keywords, description, normal_content, id);
 			 }
 			 
-			 this.computeTfidf(dataPart);
-			 
+			this.computeTfidf(dataPart);
+
 		}catch (Exception e){
 			e.printStackTrace();
 			return false;
 		}
 		
+		return true;
+	}
+
+	private boolean preprocessDataSetDB() {
+		String selectSQL = "select * from `pages_table`";
+		ResultSet selectRs;
+		Statement selectSt;
+
+		try {
+			selectRs = dataSetDB.query(selectSQL);
+			selectSt = selectRs.getStatement();
+			Record record;
+			RecordPool dataPart = new RecordPool();
+
+			selectRs.beforeFirst();
+
+			while(selectRs.next()){
+				record = new Record();
+				record.setPage_id(selectRs.getString("page_id"));
+				record.setTitle(generateWords(selectRs.getString("title")));
+				record.setKeywords(generateWords(selectRs.getString("keywords")));
+				record.setDescription(generateWords(selectRs.getString("description")));
+				record.setNormal_content(generateWords(htmlBodyText(selectRs.getString("text"))));
+				dataPart.add(record);
+			}
+			selectSt.close();
+			selectRs.close();
+
+			String table = "pages_table";
+			for(Record part : dataPart){
+				String id = part.getPage_id();
+				String title = part.getTitle();
+				String keywords = part.getKeywords();
+				String description = part.getDescription();
+				String normal_content = part.getNormal_content();
+				String updateSQL = "UPDATE ? SET title = ?, keywords = ?, description = ?, normal_content = ? WHERE page_id = ?";
+				dataSetDB.modify(updateSQL, table, title, keywords, description, normal_content, id);
+			}
+		}catch (Exception e){
+			e.printStackTrace();
+			return false;
+		}
 		return true;
 	}
 	
@@ -143,7 +188,8 @@ public class Preprocessor {
             	 String title = rc.getTitle();
             	 String keywords = rc.getKeywords();
             	 String description = rc.getDescription();
-            	 String document = title + keywords+ description;
+				 String normal_content = rc.getNormal_content();
+            	 String document = title + keywords+ description + normal_content;
             	 if(document.length()>=2){
             		 content = document.split(",");
                 	 content_remove_dul = wordRemoval(content);
@@ -152,20 +198,21 @@ public class Preprocessor {
              			else wordSample.put(word, 1);
              		}
                  }
-            }
+             }
              
              for(Record rc : rp){
             	 String page_id = rc.getPage_id();
             	 String title = rc.getTitle();
             	 String keywords = rc.getKeywords();
             	 String description = rc.getDescription();
-            	 String document = title + keywords+ description;
+	             String normal_content = rc.getNormal_content();
+            	 String document = title + keywords+ description + normal_content;
             	 if(document.length()>=2){
             		 content = document.split(",");
                 	 content_remove_dul = wordRemoval(content);
                 	 for(String word : content){
                 		 if(wordFre.containsKey(word)) wordFre.put(word, wordFre.get(word)+1);
-              			else wordFre.put(word, 1);
+                         else wordFre.put(word, 1);
                 	 }
                 	 for(String word : content_remove_dul){
                 		 newTI = new TfIdf();
@@ -208,13 +255,7 @@ public class Preprocessor {
  // return word list seperate by ","
     public static String generateWords(String str){
         List<Term> termList = NlpAnalysis.parse(str).getTerms();
-        /*
-        //remove duplicate
-        Set<Term> termSet = new HashSet<>();
-        termSet.addAll(termList);
-        termList.clear();
-        termList.addAll(termSet);   */
-   
+
         StringBuilder newStr = new StringBuilder();
         String termNameTrim;
         String termNatureStr;
@@ -229,7 +270,7 @@ public class Preprocessor {
 
             // only those term which length is greater than 2 make sense
             // alternatively we can use a `removeStopWord()' function to
-            // remove stop word such as ¡®µÄ', 'µÃ'£¬'ÁË'...
+            // remove stop word such as 'çš„', 'äº†'...
             if(termNatureStr != "null" && termNameTrim.length() >= 2 && termNatureStr.contains("n")){
                 newStr.append(termNameTrim.toUpperCase() + ",");
             }
@@ -238,34 +279,37 @@ public class Preprocessor {
     }
     
     //calculate every single word's frequency in a document
-    public static HashMap<String, Integer>getWordFre(String document){
+    public static HashMap<String, Double>getWordFre(String document){
     	document = generateWords(document);
-		HashMap<String, Integer> map = new HashMap<String, Integer>();
+		HashMap<String, Double> map = new HashMap<>();
 		String[] content = document.split(",");
 		for(String word : content){
 			if(map.containsKey(word)) map.put(word, map.get(word)+1);
-			else map.put(word, 1);
+			else map.put(word, 1.0);
 		}
     	return map;
     }
     
   //remove duplicated word in String Array
   	public static String[] wordRemoval(String[] content){
-  		List<String> list = new ArrayList<String>();
-  		for(String elem : content){
-  			if(!list.contains(elem)) list.add(elem);
-  		}
-  		String[] new_content = {};
-  		content = list.toArray(new_content);
-  		return content;  
+	    Set<String> s = new HashSet<>();
+	    s.addAll(Arrays.asList(content));
+	    return (String [])s.toArray();
   	}
+
+	public static String htmlBodyText(String html){
+		Document doc = Jsoup.parse(html);
+		Element body = doc.body();
+		String text = body.text();
+		return body.text();
+	}
   	
   	//calculate word frequency for Bayes Classifier
   	public static ArrayList<HashMap<String,Double>> getWordFreBayes(RecordPool pool){
   		ArrayList<HashMap<String,Double>> map = new ArrayList<HashMap<String,Double>>();
   		int[] numOfEveryTag  = new int[numOfTag];
   		for(int i=0; i <numOfTag; i++){
-  			if(!tag[i].equals("")){
+  			if(!Configuration.tags[i].equals("")){
   				HashMap<String,Double> tmp = new HashMap<String,Double>();
   				map.add(tmp);
   			}
@@ -279,7 +323,7 @@ public class Preprocessor {
        	    String description = record.getDescription();
        	    String document = title + keywords+ description;
        	    for(int i=0; i<map.size(); i++){
-       	    	if(rc_tag.equals(tag[i])){
+       	    	if(rc_tag.equals(Configuration.tags[i])){
        	    		if(document.length()>=2){
                		    content = document.split(",");
                		    numOfEveryTag[i] += content.length;

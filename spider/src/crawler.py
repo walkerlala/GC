@@ -37,8 +37,9 @@ default_conf = {
     "crawler_table":"pages_table",
     }
 
-_pause_interval = 3
-_exceeded_try=10
+_pause_interval = 1
+_exceeded_try=5
+
 class Crawler(object):
     """ The crawler.
         Multiple threads would be started in method run() """
@@ -71,18 +72,20 @@ class Crawler(object):
                        " `page_id` int(20) NOT NULL AUTO_INCREMENT,"
                        " `page_url` varchar(400) NOT NULL,"
                        " `domain_name` varchar(100) NOT NULL,"
-                       #" `sublinks` text,"
+                       " `sublinks` text,"
                        " `title` varchar(255),"
-                       #" `normal_content` text,"
-                       #" `emphasized_content` text,"
+                       " `normal_content` text,"
+                       " `emphasized_content` text,"
                        " `keywords` varchar(255),"
                        " `description` varchar(511),"
                        " `text` longtext,"
                        " `PR_score` double default 0.0,"
                        " `ad_NR` int default 0,"
                        " `tag` varchar(20) default null,"
-                       #" `classify_attribute` ...
-                       " PRIMARY KEY (`page_id`)"
+                       #" `classify_attribute_1` ...
+                       #" `classify_attribute_2` ...
+                       " PRIMARY KEY (`page_id`),"
+                       " INDEX (`page_url`)"
                        ")CHARSET=UTF8, ENGINE=InnoDB" )
         self.db.update("truncate table " + self.crawler_table)
 
@@ -168,7 +171,6 @@ class Crawler(object):
                 #"Referer":"https://www.tandfonline.com",
                 #"Upgrade-Insecure-Requests":"1",
                 #"User-agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.94 Safari/537.36",
-                #"User-Agent":"Google Bot",
                 "User-agent":"Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
                 }
 
@@ -223,13 +225,13 @@ class Crawler(object):
                                 "url:[%s]\n" % (str(e), origin))
                         continue
                     self.log.info("Finished extract_links()")
-                    outer_links = set(outer_links) #outer_links not handled yet
+                    outer_links = set(outer_links)
                     inner_links = set(inner_links)
                     if self.focusing:
                         self.log.info("crawler is FOCUSING now.\n")
                         self._result_dict[origin] = inner_links
                     else:
-                        self._result_dict[origin] = inner_links.union(outer_links)
+                        self._result_dict[origin] = outer_links
 
                     # resp.content return 'bytes' object
                     try:
@@ -264,7 +266,7 @@ class Crawler(object):
         protocal, domain = self.get_protocal_domain(origin_url)
 
         #useless file pattern (something like xxx.jpg, xxx.mp4, xxx.css, xxx.pdf, etc)
-        uf_pattern = re.compile(r'\.jpg$|\.png|\.xml|\.mp4|\.mp3|\.css|\.pdf|\.svg')
+        uf_pattern = re.compile(r'\.jpg$|\.png|\.xml|\.mp4|\.mp3|\.css|\.pdf|\.svg|\.gz|\.zip|\.rar|\.exe|\.tar')
         #unsupported protocal pattern(something like ftp://, sftp://, thunders://, etc)
         up_pattern = re.compile(r'^.{0,10}:')
         #tag link pattern
@@ -283,9 +285,9 @@ class Crawler(object):
                 #check whether it's outer link or inner link
                 test_protocal, test_domain = self.get_protocal_domain(element)
                 if test_domain != domain:
-                    outer_link_lists.append(element)
+                    outer_link_lists.append(element.strip())
                 else:
-                    inner_link_lists.append(element)
+                    inner_link_lists.append(element.strip())
             elif re.findall(uf_pattern, element):
                 continue
             elif re.findall(tag_pattern, element):
@@ -297,7 +299,7 @@ class Crawler(object):
                     link = protocal + '://' + domain + element
                 else:
                     link = protocal + '://' + domain + '/' + element
-                inner_link_lists.append(link)
+                inner_link_lists.append(link.strip())
 
         return (outer_link_lists, inner_link_lists)
 

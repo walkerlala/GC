@@ -90,8 +90,7 @@ public class ClassifyHandler {
                 record.setTitle(selectRs.getString("title"));
                 record.setKeywords(selectRs.getString("keywords"));
                 record.setDescription(selectRs.getString("description"));
-                /*FIXME: Note that we don't include the `text` part now because it's so large that
-                 * it may slow down the program */
+                record.setNormal_content(selectRs.getString("normal_content"));
                 //record.setText(selectRs.getString("text"));
                 record.setTag(selectRs.getString("tag"));
                 //record.setPR_score(selectRs.getDouble("PR_score"));
@@ -134,10 +133,10 @@ public class ClassifyHandler {
                     "`page_id` int(20) NOT NULL AUTO_INCREMENT," +
                     "`page_url` varchar(400) NOT NULL," +
                     "`domain_name` varchar(100) NOT NULL," +
-                    //"`sublinks` text," +
+                    "`sublinks` text," +
                     "`title` varchar(255)," +
-                    //"`nomal_content` text," +
-                    //"`emphasized_content` text," +
+                    "`nomal_content` text," +
+                    "`emphasized_content` text," +
                     "`keywords` varchar(255)," +
                     "`description` varchar(511)," +
                     "`text` longtext," +
@@ -145,7 +144,8 @@ public class ClassifyHandler {
                     "`ad_NR` int default 0," +
                     "`tag` varchar(20) default null," +
                     //"`classify_attr1` ..." +
-                    "PRIMARY KEY (`page_id`)" +
+                    "PRIMARY KEY (`page_id`)," +
+                    "INDEX (`page_url`)" +
                     ")ENGINE=InnoDB");
             resultSetDB.modify("truncate table `pages_table`");
         }catch (Exception e){

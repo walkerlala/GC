@@ -10,10 +10,6 @@ from ConfReader import ConfReader
 from unbuffered_output import uopen
 from Logger import Logger
 
-default_conf = {
-    "buffer_output":"yes",
-    }
-
 class NetworkHandler:
     """ handle network
         NOTE that we haven't set any timeout value for any connection here,
@@ -24,9 +20,7 @@ class NetworkHandler:
     def __init__(self, ip, port):
         """ Initialization """
         # just use crawler's conf, since NetworkHandler is primarily used by crawler
-        self.conf = ConfReader("crawler.conf", default_conf)
-        buffer_output = self.conf.get("buffer_output")
-        self.my_open = uopen if buffer_output == "no" else open
+        #self.conf = ConfReader("crawler.conf", default_conf)
 
         self.log = Logger(Logger.DEBUG)
 

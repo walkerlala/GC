@@ -45,9 +45,10 @@ public class Configuration {
     public static final int K;
     public static final double KNNKeywordsWeight;
     public static final double KNNTitleWeight;
-    public static final double KNNDescriptionWeght;
+    public static final double KNNDescriptionWeight;
     
     public static final int numOfTag;
+    public static final String[] tags;
 
     //instantiate
     static {
@@ -85,8 +86,16 @@ public class Configuration {
         K = Integer.valueOf(prop.getProperty("K"));
         KNNKeywordsWeight = Double.valueOf(prop.getProperty("KNNKeywordsWeight"));
         KNNTitleWeight = Double.valueOf(prop.getProperty("KNNTitleWeight"));
-        KNNDescriptionWeght = Double.valueOf(prop.getProperty("KNNDescriptionWeght"));
+        KNNDescriptionWeight = Double.valueOf(prop.getProperty("KNNDescriptionWeight"));
         numOfTag = Integer.valueOf(prop.getProperty("numOfTag"));
+        tags = prop.getProperty("tags").split(";");
+        if(tags.length != numOfTag){
+            new Exception("ERROR Configuration: numOfTag NOT equal tags count").printStackTrace();
+        }else{
+            for(int i=0;i<numOfTag;i++){
+                tags[i] = tags[i].split(":")[0];
+            }
+        }
     }
 
 }
