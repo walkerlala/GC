@@ -270,7 +270,7 @@ public class Preprocessor {
 
             // only those term which length is greater than 2 make sense
             // alternatively we can use a `removeStopWord()' function to
-            // remove stop word such as '的', '了'...
+            // remove stop word such as ‘的', '得'，'了'...
             if(termNatureStr != "null" && termNameTrim.length() >= 2 && termNatureStr.contains("n")){
                 newStr.append(termNameTrim.toUpperCase() + ",");
             }
@@ -342,5 +342,4 @@ public class Preprocessor {
   		
   		return map;
   	}
-  	
 }
