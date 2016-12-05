@@ -7,6 +7,7 @@ import cn.lasagna.www.classifier.Preprocessor;
 import cn.lasagna.www.util.Configuration;
 
 
+import cn.lasagna.www.util.MyLogger;
 import org.ansj.domain.Term;
 import org.ansj.splitWord.analysis.NlpAnalysis;
 
@@ -17,7 +18,7 @@ import java.util.List;
 import java.util.Set;
 
 public class Bayes implements ClassifierInterface{
-	private Preprocessor prepro = new Preprocessor();
+	MyLogger logger = new MyLogger(this.getClass());
 	private static ArrayList<HashMap<String,Double>> map = new ArrayList<HashMap<String,Double>>();//训练集12个类
 	private int numOfTag = Configuration.numOfTag;
 	
@@ -26,19 +27,8 @@ public class Bayes implements ClassifierInterface{
 	private double[] pxc = new double[numOfTag];//一个单词条件概率
 	private double[] Pxc = new double[numOfTag];//一条记录条件概率
 	private double[] p = new double[numOfTag];//bayes rule
-	
-	private String tag0 = Configuration.tag0;
-	private String tag1 = Configuration.tag1;
-	private String tag2 = Configuration.tag2;
-	private String tag3 = Configuration.tag3;
-	private String tag4 = Configuration.tag4;
-	private String tag5 = Configuration.tag5;
-	private String tag6 = Configuration.tag6;
-	private String tag7 = Configuration.tag7;
-	private String tag8 = Configuration.tag8;
-	private String tag9 = Configuration.tag9;
-	private String tag10 = Configuration.tag10;
-	private String tag11 = Configuration.tag11;
+
+	private String[] tags = Configuration.tags;
 
 	public Bayes(){
 		for(int i=0;i<numOfTag;i++){
@@ -51,7 +41,7 @@ public class Bayes implements ClassifierInterface{
 	//得到12个哈希表
 	 public boolean buildTrainingModel(RecordPool trainingSet) {
 		 calculateClassPro(trainingSet);
-		 map = prepro.getWordFreBayes(trainingSet);
+		 map = getWordFreBayes(trainingSet);
 		// numOfTag = map.size();
 		 //System.out.println("****************"+map.size());
 		 
@@ -93,43 +83,10 @@ public class Bayes implements ClassifierInterface{
 		 String title = newRecord.getTitle();
 		 String ket_des_tit = keyword + description+title;
 		 
-		 String word = generateWords(ket_des_tit);
+		 String word = Preprocessor.generateWords(ket_des_tit);
 		 
 		 return word;
 	 }
-	 
-	 /* return word list seperate by . */
-	 public static String generateWords(String str){
-	     List<Term> termList = NlpAnalysis.parse(str).getTerms();
-	         
-	     //remove duplicate
-	     Set<Term> termSet = new HashSet<>();
-	     termSet.addAll(termList);
-	     termList.clear();
-	     termList.addAll(termSet);
-
-	     StringBuilder newStr = new StringBuilder();
-	     String termNameTrim;
-	     String termNatureStr;
-	     for(Term term:termList){
-	         try {
-	             termNameTrim = term.getName().trim();
-	             termNatureStr = term.getNatureStr();
-	         }catch (Exception e){
-	             e.printStackTrace();
-	             continue;
-	         }
-
-	         // only those term which length is greater than 2 make sense
-	         // alternatively we can use a `removeStopWord()' function to
-	         // remove stop word such as ‘的', '得'，'了'...
-	         if(termNatureStr != "null" && termNameTrim.length() >= 2 && termNatureStr.contains("n")){
-	            newStr.append(termNameTrim.toUpperCase() + ",");
-	         }
-	     }
-	     return newStr.toString();
-	 }   
-
 	 
 	 //计算一条记录在12个类别的概率
 	 public void calculatePro(String[] words){
@@ -164,45 +121,11 @@ public class Bayes implements ClassifierInterface{
 		 for (Record tuple : Set){
 			 newRecord = new Record();
 	         newRecord.putAll(tuple);
-			 switch(newRecord.getTag()){
-				case "新闻":
-					num[0] += 1;
-					break;
-				case "小说":
-					num[1] += 1;
-					break;
-				case "购物":
-					num[2] += 1;
-					break;
-				case "医疗":
-					num[3] += 1;
-					break;
-				case "视频":
-					num[4] += 1;
-					break;
-				case "社交":
-					num[5] += 1;
-					break;
-				case "游戏":
-					num[6] += 1;
-					break;
-				case "旅游":
-					num[7] += 1;
-					break;
-				case "服务":
-					num[8] += 1;
-					break;
-				case "网络课程":
-					num[9] += 1;
-					break;
-				case "音乐":
-					num[10] += 1;
-					break;
-				case "软件下载":
-					num[11] += 1;
-					break;
-				default:
-					break;
+			 String tagName = newRecord.getTag();
+			 for(int i = 0; i<numOfTag; i++){
+				 if(tagName.equals(this.tags[i])){
+					 num[i]++;
+				 }
 			 }
 		 }
 		 
@@ -214,9 +137,9 @@ public class Bayes implements ClassifierInterface{
 		 //System.out.println(total_num);
 		 try{
 			 for(int i=0;i<numOfTag;i++)
-				 pc[i] = num[i]/total_num;
+				 pc[i] = (double)num[i]/total_num;
 		 } catch(ArithmeticException e){
-			 System.out.println("分母为０！");
+			 logger.info("分母为0!", MyLogger.STDOUT);
 			 e.printStackTrace();
 		 }
 
@@ -287,49 +210,51 @@ public class Bayes implements ClassifierInterface{
 			if( array[max] < array[i] )
 				max = i;	
 		}
-		
-		switch(max){
-		case 0:
-			tag = tag0;
-			break;
-		case 1:
-			tag = tag1;
-			break;
-		case 2:
-			tag = tag2;
-			break;
-		case 3:
-			tag = tag3;
-			break;
-		case 4:
-			tag = tag4;
-			break;
-		case 5:
-			tag = tag5;
-			break;
-		case 6:
-			tag = tag6;
-			break;
-		case 7:
-			tag = tag7;
-			break;
-		case 8:
-			tag = tag8;
-			break;
-		case 9:
-			tag = tag9;
-			break;
-		case 10:
-			tag = tag10;
-			break;
-		case 11:
-			tag = tag11;
-			break;
-		default:
-			tag = "";
-			break;	
-		}
-		
+		 tag = this.tags[max];
+
 		return tag;
 	 }
+
+	 /* getWordFreBayes -- calculate word frequency for Bayes Classifier
+  	 *  @pool: record pool
+  	 *  return  --  every tag is associated with a map, which map a word to its frequency
+  	 *              in the document of that word
+  	 */
+  	private ArrayList<HashMap<String,Double>> getWordFreBayes(RecordPool pool){
+  		ArrayList<HashMap<String,Double>> map = new ArrayList<HashMap<String,Double>>();
+  		int[] numOfEveryTag  = new int[numOfTag];
+  		for(int i=0; i <numOfTag; i++){
+  			if(!tags[i].equals("")){
+  				HashMap<String,Double> tmp = new HashMap<String,Double>();
+  				map.add(tmp);
+  			}
+  		}
+  		String[] content;
+  		//calculate every tag's word frequency
+  		for(Record record : pool){
+  			String rc_tag = record.getTag();
+  			String title = record.getTitle();
+  			String keywords = record.getKeywords();
+       	    String description = record.getDescription();
+       	    String document = title + keywords+ description;
+       	    for(int i=0; i<map.size(); i++){
+       	    	if(rc_tag.equals(tags[i])){
+       	    		if(document.length()>=2){
+               		    content = document.split(",");
+               		    numOfEveryTag[i] += content.length;
+               		    for(String word : content){
+               		    	if(map.get(i).containsKey(word))  map.get(i).put(word, map.get(i).get(word)+1.0);
+               		    	else  map.get(i).put(word, 1.0);
+               		    }
+               	    }
+       	    		break;
+       	    	}
+       	    }
+  		}
+  		for(int i=0; i<map.size(); i++)
+  			for(String key : map.get(i).keySet())
+                map.get(i).put(key, map.get(i).get(key)/numOfEveryTag[i]);
+
+  		return map;
+  	}
 }

@@ -17,7 +17,7 @@ public class Preprocessor {
 	private static HashMap<String, Integer> wordSample;   //hashmap: key-word, value-the number of sample that contains this word 
 	private static int trainingSamples;  //the number of Samples in trainingSet
 	public static int numOfTag = Configuration.numOfTag;
-	public String[] tags =  Configuration.tags;
+	public static String[] tags =  Configuration.tags;
 	 MyLogger logger = new MyLogger(this.getClass());
 	private DBUtil trainingSetDB = new DBUtil();
 	private DBUtil dataSetDB = new DBUtil();
@@ -95,7 +95,7 @@ public class Preprocessor {
 	                record.setTitle(generateWords(selectRs.getString("title")));
 	                record.setKeywords(generateWords(selectRs.getString("keywords")));
 	                record.setDescription(generateWords(selectRs.getString("description")));
-				    record.setNormal_content(generateWords(htmlBodyText(selectRs.getString("text"))));
+				    //record.setNormal_content(generateWords(htmlBodyText(selectRs.getString("text"))));
 	                dataPart.add(record);
 			 }
 			 
@@ -109,9 +109,9 @@ public class Preprocessor {
 				 String title = part.getTitle();
 				 String keywords = part.getKeywords();
 				 String description = part.getDescription();
-				 String normal_content = part.getNormal_content();
-				 String updateSQL = "UPDATE ? SET title = ?, keywords = ?, description = ?, normal_content = ? WHERE page_id = ? ";
-				 trainingSetDB.modify(updateSQL, table, title, keywords, description, normal_content, id);
+				 //String normal_content = part.getNormal_content();
+				 String updateSQL = "UPDATE ? SET title = ?, keywords = ?, description = ? WHERE page_id = ? ";
+				 trainingSetDB.modify(updateSQL, table, title, keywords, description, id);
 			 }
 			 
 			this.computeTfidf(dataPart);
@@ -143,7 +143,7 @@ public class Preprocessor {
 				record.setTitle(generateWords(selectRs.getString("title")));
 				record.setKeywords(generateWords(selectRs.getString("keywords")));
 				record.setDescription(generateWords(selectRs.getString("description")));
-				record.setNormal_content(generateWords(htmlBodyText(selectRs.getString("text"))));
+				//record.setNormal_content(generateWords(htmlBodyText(selectRs.getString("text"))));
 				dataPart.add(record);
 			}
 			selectSt.close();
@@ -155,9 +155,9 @@ public class Preprocessor {
 				String title = part.getTitle();
 				String keywords = part.getKeywords();
 				String description = part.getDescription();
-				String normal_content = part.getNormal_content();
-				String updateSQL = "UPDATE ? SET title = ?, keywords = ?, description = ?, normal_content = ? WHERE page_id = ?";
-				dataSetDB.modify(updateSQL, table, title, keywords, description, normal_content, id);
+				//String normal_content = part.getNormal_content();
+				String updateSQL = "UPDATE ? SET title = ?, keywords = ?, description = ? WHERE page_id = ?";
+				dataSetDB.modify(updateSQL, table, title, keywords, description, id);
 			}
 		}catch (Exception e){
 			e.printStackTrace();
@@ -188,8 +188,8 @@ public class Preprocessor {
             	 String title = rc.getTitle();
             	 String keywords = rc.getKeywords();
             	 String description = rc.getDescription();
-				 String normal_content = rc.getNormal_content();
-            	 String document = title + keywords+ description + normal_content;
+				 //String normal_content = rc.getNormal_content();
+            	 String document = title + keywords+ description;
             	 if(document.length()>=2){
             		 content = document.split(",");
                 	 content_remove_dul = wordRemoval(content);
@@ -205,8 +205,8 @@ public class Preprocessor {
             	 String title = rc.getTitle();
             	 String keywords = rc.getKeywords();
             	 String description = rc.getDescription();
-	             String normal_content = rc.getNormal_content();
-            	 String document = title + keywords+ description + normal_content;
+	             //String normal_content = rc.getNormal_content();
+            	 String document = title + keywords+ description;
             	 if(document.length()>=2){
             		 content = document.split(",");
                 	 content_remove_dul = wordRemoval(content);
@@ -300,46 +300,9 @@ public class Preprocessor {
 	public static String htmlBodyText(String html){
 		Document doc = Jsoup.parse(html);
 		Element body = doc.body();
-		String text = body.text();
+		//String text = body.text();
 		return body.text();
 	}
   	
-  	//calculate word frequency for Bayes Classifier
-  	public static ArrayList<HashMap<String,Double>> getWordFreBayes(RecordPool pool){
-  		ArrayList<HashMap<String,Double>> map = new ArrayList<HashMap<String,Double>>();
-  		int[] numOfEveryTag  = new int[numOfTag];
-  		for(int i=0; i <numOfTag; i++){
-  			if(!Configuration.tags[i].equals("")){
-  				HashMap<String,Double> tmp = new HashMap<String,Double>();
-  				map.add(tmp);
-  			}
-  		}
-  		String[] content;
-  		//calculate every tag's word frequency 
-  		for(Record record : pool){
-  			String rc_tag = record.getTag();
-  			String title = record.getTitle();
-  			String keywords = record.getKeywords();
-       	    String description = record.getDescription();
-       	    String document = title + keywords+ description;
-       	    for(int i=0; i<map.size(); i++){
-       	    	if(rc_tag.equals(Configuration.tags[i])){
-       	    		if(document.length()>=2){
-               		    content = document.split(",");
-               		    numOfEveryTag[i] += content.length;
-               		    for(String word : content){
-               		    	if(map.get(i).containsKey(word))  map.get(i).put(word, map.get(i).get(word)+1.0);
-               		    	else  map.get(i).put(word, 1.0);
-               		    }
-               	    }
-       	    		break;
-       	    	}
-       	    }
-  		}
-  		for(int i=0; i<map.size(); i++)
-  			for(String key : map.get(i).keySet())
-                map.get(i).put(key, map.get(i).get(key)/numOfEveryTag[i]);
-  		
-  		return map;
-  	}
+
 }
