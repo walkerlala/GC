@@ -65,8 +65,10 @@ public class ClassifyHandler {
         switch(classiferName){
             case "knn":
                 this.classifer = new KNN();
+                break;
             case "bayes":
                 this.classifer = new Bayes();
+                break;
                 //case "decisionTree":
         }
         logger.info("Classifier: " + this.classiferName, MyLogger.STDOUT);
@@ -87,13 +89,13 @@ public class ClassifyHandler {
 
             while(selectRs.next()) {
                 record = new Record();
-                record.setPage_id(selectRs.getString("page_id"));
+                record.setPage_id(selectRs.getInt("page_id"));
                 record.setPage_url(selectRs.getString("page_url"));
                 record.setDomain_name(selectRs.getString("domain_name"));
                 record.setTitle(selectRs.getString("title"));
                 record.setKeywords(selectRs.getString("keywords"));
                 record.setDescription(selectRs.getString("description"));
-                record.setNormal_content(selectRs.getString("normal_content"));
+                //record.setNormal_content(selectRs.getString("normal_content"));
                 //record.setText(selectRs.getString("text"));
                 record.setTag(selectRs.getString("tag"));
                 //record.setPR_score(selectRs.getDouble("PR_score"));
@@ -124,9 +126,6 @@ public class ClassifyHandler {
             dataSetDB.connectDB(Configuration.sourceDBUrl, Configuration.sourceDBUser,
                     Configuration.sourceDBPasswd, Configuration.sourceDBName);
         	
-        	//先用训练集测试
-            //dataSetDB.connectDB(Configuration.trainingSetDBUrl, Configuration.trainingSetDBUser,
-             //       Configuration.trainingSetDBPasswd, Configuration.trainingSetDBName);
             resultSetDB.connectDB(Configuration.targetDBUrl, Configuration.targetDBUser,
                                    Configuration.targetDBPasswd, Configuration.targetDBName);
         } catch (Exception e) {
@@ -141,11 +140,11 @@ public class ClassifyHandler {
                     "`page_url` varchar(400) NOT NULL," +
                     "`domain_name` varchar(100) NOT NULL," +
                     "`sublinks` text," +
-                    "`title` varchar(255)," +
+                    "`title` varchar(1024)," +
                     "`nomal_content` text," +
                     "`emphasized_content` text," +
-                    "`keywords` varchar(255)," +
-                    "`description` varchar(511)," +
+                    "`keywords` varchar(1024)," +
+                    "`description` varchar(1024)," +
                     "`text` longtext," +
                     "`PR_score` double default 0.0," +
                     "`ad_NR` int default 0," +
@@ -172,7 +171,7 @@ public class ClassifyHandler {
                 dataPart = new RecordPool();
                 Record record;
                 record = new Record();
-                record.setPage_id(rs.getString("page_id"));
+                record.setPage_id(rs.getInt("page_id"));
                 record.setPage_url(rs.getString("page_url"));
                 record.setDomain_name(rs.getString("domain_name"));
                 record.setTitle(rs.getString("title"));
@@ -183,7 +182,7 @@ public class ClassifyHandler {
                 for (int i = 0; i < roundNum-1; i++) {
                     if (rs.next()) {
                         record = new Record();
-                        record.setPage_id(rs.getString("page_id"));
+                        record.setPage_id(rs.getInt("page_id"));
                         record.setPage_url(rs.getString("page_url"));
                         record.setDomain_name(rs.getString("domain_name"));
                         record.setTitle(rs.getString("title"));

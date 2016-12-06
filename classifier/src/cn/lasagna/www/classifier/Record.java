@@ -8,7 +8,7 @@ import java.util.Set;
  * Created by walkerlala on 16-11-15.
  */
 public class Record {
-    private String page_id;
+    private int page_id;
     private String page_url;
     private String domain_name;
     private Set<String> sublinks;
@@ -23,7 +23,7 @@ public class Record {
     private String tag;
 
     public Record() {
-        this.page_id = null;
+        this.page_id = 0;
         this.page_url = null;
         this.domain_name = null;
         this.sublinks = new HashSet<>();
@@ -38,7 +38,7 @@ public class Record {
         this.tag = null;
     }
 
-    public void setPage_id(String id) {
+    public void setPage_id(int id) {
         this.page_id = id;
     }
 
@@ -97,7 +97,7 @@ public class Record {
         this.tag = tag;
     }
 
-    public String getPage_id() {
+    public int getPage_id() {
         return this.page_id;
     }
 

@@ -2,7 +2,7 @@ package cn.lasagna.www.classifier;
 
 public class TfIdf {
 	private String word_id;
-	private String page_id;
+	private int page_id;
 	private String word_value;
 	private String word_tag;
 	private double word_tf;
@@ -11,7 +11,7 @@ public class TfIdf {
 	
 	public TfIdf(){
 		this.word_id = null;
-		this.page_id = null;
+		this.page_id = 0;
 		this.word_value = null;
 		this.word_tf = 0.0;
 		this.word_idf = 0.0;
@@ -22,7 +22,7 @@ public class TfIdf {
 		this.word_id = id;
 	}
 	
-	public void setPage_id(String id){
+	public void setPage_id(int id){
 		this.page_id = id;
 	}
 	
@@ -46,7 +46,7 @@ public class TfIdf {
 		return this.word_id;
 	}
 	
-	public String getPage_id(){
+	public int getPage_id(){
 		return this.page_id;
 	}
 	

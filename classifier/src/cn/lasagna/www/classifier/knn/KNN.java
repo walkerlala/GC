@@ -67,7 +67,7 @@ public class KNN implements ClassifierInterface {
         HashMap<String, Double> titleMap = new HashMap<String, Double>();
         HashMap<String, Double> descriptionMap = new HashMap<String, Double>();
 
-        String pageID = record.getPage_id();
+        int pageID = record.getPage_id();
         String selectSQL = "SELECT * FROM  `tfidf_training` WHERE page_id = " + pageID;
         ResultSet rs;
         Statement rsStatement;
@@ -132,7 +132,7 @@ public class KNN implements ClassifierInterface {
     private CompareRecord buildDataModel(Record record) {
         //use data set record build compare record, the value of hash map is tf value.(词频）
         CompareRecord comRecord = new CompareRecord();
-        String pageID = record.getPage_id();
+        int pageID = record.getPage_id();
 
         //Paraphrases data sample use preprocessor class function
         HashMap<String, Double> keywordMap = WordFre(record.getKeywords());

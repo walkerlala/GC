@@ -7,10 +7,7 @@ package cn.lasagna.www.util;
 import cn.lasagna.www.classifier.knn.KNN;
 //import org.jcp.xml.dsig.internal.dom.DOMUtils;
 
-import java.io.BufferedInputStream;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.util.DoubleSummaryStatistics;
 import java.util.Properties;
 
@@ -54,8 +51,8 @@ public class Configuration {
     static {
         Properties prop = new Properties();
         try {
-            InputStream inputStream = new BufferedInputStream(
-                    new FileInputStream("conf/Configuration.properties"));
+            InputStreamReader inputStream = new InputStreamReader(
+                    new FileInputStream("conf/Configuration.properties"), "UTF-8");
             prop.load(inputStream);
             inputStream.close();
         } catch (IOException e) {

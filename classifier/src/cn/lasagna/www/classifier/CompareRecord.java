@@ -3,21 +3,21 @@ package cn.lasagna.www.classifier;
 import java.util.HashMap;
 
 public class CompareRecord {
-	private String page_id;
+	private int page_id;
 	private String tag;
 	private HashMap<String,Double> keywordMap;
 	private HashMap<String,Double> titleMap;
 	private HashMap<String,Double> descriptionMap;
 	
 	public CompareRecord(){
-		this.page_id = null;
+		this.page_id = 0;
 		this.tag = null;
 		this.keywordMap = new HashMap<String,Double>();
 		this.titleMap = new HashMap<String,Double>();
 		this.descriptionMap = new HashMap<String,Double>();
 	}
 	
-	public void setPage_id(String id){
+	public void setPage_id(int id){
 		this.page_id = id;
 	}
 	
@@ -37,7 +37,7 @@ public class CompareRecord {
 		this.descriptionMap = description;
 	}
 	
-	public String getPage_id(){
+	public int getPage_id(){
 		return page_id;
 	}
 	

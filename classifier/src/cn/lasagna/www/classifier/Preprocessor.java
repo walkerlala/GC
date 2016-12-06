@@ -90,7 +90,7 @@ public class Preprocessor {
 			 while(selectRs.next()) {
 				    trainingSamples ++;
 	                record = new Record();
-	                record.setPage_id(selectRs.getString("page_id"));
+	                record.setPage_id(selectRs.getInt("page_id"));
 	                //record.setTag(selectRs.getString("tag"));
 	                record.setTitle(generateWords(selectRs.getString("title")));
 	                record.setKeywords(generateWords(selectRs.getString("keywords")));
@@ -105,13 +105,13 @@ public class Preprocessor {
 			 //store the result of spliting words back into trainingSetDB
 			 String table = "pages_table";
 			 for(Record part : dataPart){
-				 String id = part.getPage_id();
+				 int id = part.getPage_id();
 				 String title = part.getTitle();
 				 String keywords = part.getKeywords();
 				 String description = part.getDescription();
 				 //String normal_content = part.getNormal_content();
-				 String updateSQL = "UPDATE ? SET title = ?, keywords = ?, description = ? WHERE page_id = ? ";
-				 trainingSetDB.modify(updateSQL, table, title, keywords, description, id);
+				 String updateSQL = "UPDATE `" + table + "` SET title = ?, keywords = ?, description = ? WHERE page_id = ? ";
+				 trainingSetDB.modify(updateSQL, title, keywords, description, id);
 			 }
 			 
 			this.computeTfidf(dataPart);
@@ -139,7 +139,7 @@ public class Preprocessor {
 
 			while(selectRs.next()){
 				record = new Record();
-				record.setPage_id(selectRs.getString("page_id"));
+				record.setPage_id(selectRs.getInt("page_id"));
 				record.setTitle(generateWords(selectRs.getString("title")));
 				record.setKeywords(generateWords(selectRs.getString("keywords")));
 				record.setDescription(generateWords(selectRs.getString("description")));
@@ -151,13 +151,13 @@ public class Preprocessor {
 
 			String table = "pages_table";
 			for(Record part : dataPart){
-				String id = part.getPage_id();
+				int id = part.getPage_id();
 				String title = part.getTitle();
 				String keywords = part.getKeywords();
 				String description = part.getDescription();
 				//String normal_content = part.getNormal_content();
-				String updateSQL = "UPDATE ? SET title = ?, keywords = ?, description = ? WHERE page_id = ?";
-				dataSetDB.modify(updateSQL, table, title, keywords, description, id);
+				String updateSQL = "UPDATE `" + table + "` SET title = ?, keywords = ?, description = ? WHERE page_id = ?";
+				dataSetDB.modify(updateSQL, title, keywords, description, id);
 			}
 		}catch (Exception e){
 			e.printStackTrace();
@@ -201,7 +201,7 @@ public class Preprocessor {
              }
              
              for(Record rc : rp){
-            	 String page_id = rc.getPage_id();
+            	 int page_id = rc.getPage_id();
             	 String title = rc.getTitle();
             	 String keywords = rc.getKeywords();
             	 String description = rc.getDescription();
@@ -294,7 +294,7 @@ public class Preprocessor {
   	public static String[] wordRemoval(String[] content){
 	    Set<String> s = new HashSet<>();
 	    s.addAll(Arrays.asList(content));
-	    return (String [])s.toArray();
+	    return s.toArray(new String[s.size()]);
   	}
 
 	public static String htmlBodyText(String html){
