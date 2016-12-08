@@ -54,11 +54,13 @@ public class Preprocessor {
 			logger.info("FAIL preprocess trainingSet", MyLogger.STDERR);
 		}
 
+		/*
 		if(preprocessDataSetDB()){
 			logger.info("Successfully preprocess dataSetDB", MyLogger.STDOUT);
 		}else{
 			logger.info("FAIL preprocess dataSetDB", MyLogger.STDERR);
 		}
+		*/
 
 		try{
 			trainingSetDB.closeDBConn();

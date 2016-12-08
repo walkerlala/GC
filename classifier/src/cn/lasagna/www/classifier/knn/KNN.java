@@ -135,9 +135,9 @@ public class KNN implements ClassifierInterface {
         int pageID = record.getPage_id();
 
         //Paraphrases data sample use preprocessor class function
-        HashMap<String, Double> keywordMap = WordFre(record.getKeywords());
-        HashMap<String, Double> titleMap = WordFre(record.getTitle());
-        HashMap<String, Double> descriptionMap = WordFre(record.getDescription());
+        HashMap<String, Double> keywordMap = WordFre(Preprocessor.generateWords(record.getKeywords()));
+        HashMap<String, Double> titleMap = WordFre(Preprocessor.generateWords(record.getTitle()));
+        HashMap<String, Double> descriptionMap = WordFre(Preprocessor.generateWords(record.getDescription()));
 
         //Calculate and store vector length in order use it directly later
         descriptionMap.put("this-is-tfidf-entry", calculateVector(descriptionMap));
