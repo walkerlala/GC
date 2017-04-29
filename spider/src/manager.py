@@ -5,6 +5,10 @@
 
 ## TODO
 # 1. identify crawler by (ip, port) pair
+#       Note that if we identify crawler by port, then
+#       one single ip would have many crawler, which would
+#       cause data race in the `get_by_addr()' (two crawlers
+#       get the same url)
 # 2. use hash to assign domain name
 # 3. implement memory mapping enable reentrance
 
@@ -163,11 +167,12 @@ class PriQueue:
                 )  # sleep() would halt only current thread, not the entire process
                 return 'https://www.oh-my-url-you-are-definitely-going-to-fail.com'
             elif len(self.links_by_addr[addr]):
-                logger.info("returning one links to [%s]" % addr, Logger.STDOUT)
+                logger.info("get_by_addr(): returning one links to [%s]" % addr, Logger.STDOUT)
                 link = self.links_by_addr[addr].pop()
                 self._release()
                 return link
             else:
+                self._release()
                 raise EmptyPriQueue("Empty links for crawler:[%s]\n" % addr)
 
     def insert_into(self, addr, link):
@@ -293,28 +298,24 @@ class Manager:
                         data_buf.append(data)
                     else:
                         break
-                #result dict is a dict: { link: {set of links or 'FAIL'}
+                #result dict is a dict: { link: {set of links} or 'FAIL'}
                 data = b''.join(data_buf)
                 _result_dict = pickle.loads(data)
                 crawled_links = []
                 for key, value in _result_dict.items():
                     #没爬成功的，就是'FAIL'(我们对一个链接只爬一次，无论成功与否)
+                    self.bf_acquire()
                     if (value == 'FAIL'):
-                        self.bf_acquire()
-                        #加入bloom_filter之中，否则这个链接会被重爬
-                        self.bloom_filter.add(key)
-                        crawled_links.append(key)
-                        self.bf_release()
+                        pass
                     else:
-                        self.bf_acquire()
                         crawled_links.append(key)
-                        self.bloom_filter.add(key)
                         # limit links count(it's ok to exceed a little bit)
                         if len(self.prio_que) < self.prio_ful_threshold:
                             for sub_link in value:
                                 if sub_link not in self.bloom_filter:
+                                    self.bloom_filter.add(sub_link)
                                     self.prio_que.append(sub_link)
-                        self.bf_release()
+                    self.bf_release()
 
                 # remove links of dominant domain so that links
                 # from other domains have an opportunity to be
@@ -345,7 +346,7 @@ class Manager:
                 data = None
                 links_buffer = []
                 try:
-                    for _ in range(self._nsent):  #一次发送多少self._nsent条链接
+                    for _ in range(self._nsent):  #一次发送self._nsent条链接
                         links_buffer.append(self.prio_que.get_by_addr(addr[0]))
                 except EmptyPriQueue:
                     pass

@@ -13,7 +13,7 @@ usage() {
 
 manager() {
     echo -n "Running manager..."
-    ./src/manager.py #> ./log/manager.out 2> ./log/manager.err &
+    python3 ./src/manager.py > ./log/manager.out 2> ./log/manager.err &
     if [[ "$?" == 0 ]]
     then
         echo "OK"
@@ -24,7 +24,7 @@ manager() {
 
 crawler() {
     echo -n "Running crawler..."
-    ./src/crawler.py #> ./log/crawler.out 2> ./log/crawler.err &
+    python3 ./src/crawler.py > ./log/crawler.out 2> ./log/crawler.err &
     if [[ "$?" == 0 ]]
     then
         echo "OK"

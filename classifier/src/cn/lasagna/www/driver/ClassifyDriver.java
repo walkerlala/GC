@@ -13,11 +13,11 @@ public class ClassifyDriver {
         String launchTime = new SimpleDateFormat("yyyy-MM-dd HH-mm-ss").format(new Date());
         System.out.println("Driver start running at " + launchTime);
 
-        //Preprocessor pre = new Preprocessor();
-        //pre.preprocess();
+        Preprocessor pre = new Preprocessor();
+        pre.preprocess();
         
-        ClassifyHandler classifyHandler = new ClassifyHandler();
-        classifyHandler.handle();
+        //ClassifyHandler classifyHandler = new ClassifyHandler();
+        //classifyHandler.handle();
 
         String stopTime = new SimpleDateFormat("yyyy-MM-dd HH-mm-ss").format(new Date());
         System.out.println("Driver stop at " + stopTime);

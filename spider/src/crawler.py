@@ -14,7 +14,6 @@ import traceback
 import requests
 from lxml import etree
 from NetworkHandler import NetworkHandler
-import readability.readability
 from unbuffered_output import uopen
 from ConfReader import ConfReader
 from Logger import Logger
@@ -48,7 +47,7 @@ class Crawler(object):
         """ Initialization """
 
         self.conf = ConfReader("crawler.conf", default_conf)
-        self.log = Logger()
+        self.logger = Logger()
         self.db = None
 
         self.thread_pool_size = self.conf.get("thread_pool_size")
@@ -68,10 +67,13 @@ class Crawler(object):
         self.crawler_table = self.conf.get("crawler_table")
         self.db = DBHandler(self.crawler_DB, self.DB_user,self.DB_passwd,self.DB_url)
         self.db.connect()
+        # Mysql columns are case insensitive (contrary to Oracle) for search operations
+        # and the default behavior can be changed while creating the table by specifying
+        # the "BINARY"
         self.db.update("CREATE TABLE IF NOT EXISTS `" + self.crawler_table + "` ("
                        " `page_id` int(20) NOT NULL AUTO_INCREMENT,"
-                       " `page_url` varchar(400) NOT NULL,"
-                       " `domain_name` varchar(100) NOT NULL,"
+                       " `page_url` varchar(200) BINARY NOT NULL,"
+                       " `domain_name` varchar(100) BINARY NOT NULL,"
                        " `sublinks` text,"
                        " `title` varchar(1024),"
                        " `normal_content` text,"
@@ -116,7 +118,7 @@ class Crawler(object):
                 # message(self.focusing), which tell the crawler whether it
                 # should still be focused-crawling or not
                 (self.focusing, links) = self.links_requester.request()
-                self.log.info("links_requester succeed request()")
+                self.logger.info("links_requester succeed request()")
                 if not links:
                     #return whatever in self._buffer
                     tmp = self._buffer
@@ -176,7 +178,7 @@ class Crawler(object):
 
         try:
             response = Crawler.req(resolved_url, headers=headers, timeout=self.crawling_timeout)
-            self.log.info("Get response[%d]: [%s]" % (response.status_code, resolved_url))
+            self.logger.info("Get response[%d]: [%s]" % (response.status_code, resolved_url))
             #check whether we get a plain text response
             #note that key in `response.headers` is case insensitive
             if 'content-type' in response.headers:
@@ -187,7 +189,7 @@ class Crawler(object):
             else:
                 return None
         except Exception as e:
-            self.log.info("Fail to fetch page. Exception: %s, url:[%s]" % (str(e), resolved_url))
+            self.logger.info("Fail to fetch page. Exception: %s, url:[%s]" % (str(e), resolved_url))
             return None
 
     def run(self):
@@ -198,13 +200,20 @@ class Crawler(object):
             try:
                 urls = self.get_links()
             except Exception as e:
-                self.log.info("Cannot get urls. crawler sleep for 10 seconds."
-                        "Exception:[%s]\n" % str(e))
+                self.logger.info("Cannot get urls. crawler sleep for 10 seconds.\n"
+                        "\tException:[%s]\n" % str(e))
                 time.sleep(10) #wait a little bit to see if thing would get better
                 continue
             if not urls:
-                self.log.info("Empty urls from dns_resolver. Crawler exit")
+                self.logger.info("Empty urls from dns_resolver. Crawler exit")
                 break
+
+            #####DEBUG
+            self.logger.info("GOT urls from manager: [")
+            for u in urls:
+                self.logger.info("\t" + u)
+            self.logger.info("  ]")
+            #####END
 
             # 爬取链接
             with ThreadPoolExecutor(self.thread_pool_size) as pool:
@@ -221,34 +230,34 @@ class Crawler(object):
                         # Note that resp.text return unicode string
                         outer_links, inner_links = self.extract_link(origin, resp.text)
                     except Exception as e:
-                        self.log.info("Exception when extract_links:[%s],"
-                                "url:[%s]\n" % (str(e), origin))
+                        self.logger.info(("Exception when extract_links:[%s],"
+                                "url:[%s]\n") % (str(e), origin))
                         continue
-                    self.log.info("Finished extract_links()")
+                    self.logger.info("Finished extract_links()")
                     outer_links = set(outer_links)
                     inner_links = set(inner_links)
                     if self.focusing:
-                        self.log.info("crawler is FOCUSING now.\n")
-                        self._result_dict[origin] = inner_links
+                        self.logger.info("crawler is FOCUSING now.\n")
+                        self._result_dict[origin] = self.trim_url_suffix(inner_links)
                     else:
-                        self._result_dict[origin] = outer_links
+                        self._result_dict[origin] = self.trim_url_suffix(outer_links)
 
                     # resp.content return 'bytes' object
                     try:
-                        self.dump_content(resp)
+                        self.dump_content(resp, origin)
                     except Exception as e:
-                        self.log.info("Exception when dump_content():[%s],"
-                                "url:[%s]" % (str(e), origin))
+                        self.logger.info(("Exception when dump_content():[%s],"
+                                "url:[%s]") % (str(e), origin))
                         traceback.print_exc()
                         continue
-                    self.log.info("Finished dump_content()")
+                    self.logger.info("Finished dump_content()")
 
             data = pickle.dumps(self._result_dict)
             try:
                 self.result_sender.send(data)
-                self.log.info("successfully sent back to the left\n")
+                self.logger.info("successfully sent back to the left\n")
             except Exception as e:
-                self.log.info(("Fail sending to manager:[%s]\n"
+                self.logger.info(("Fail sending to manager:[%s]\n"
                                     "unsent links:[%s]\n") % (str(e), str(self._result_dict)))
             finally:
                 self._result_dict = {}
@@ -269,8 +278,6 @@ class Crawler(object):
         uf_pattern = re.compile(r'\.jpg$|\.png|\.xml|\.mp4|\.mp3|\.css|\.pdf|\.svg|\.gz|\.zip|\.rar|\.exe|\.tar')
         #unsupported protocal pattern(something like ftp://, sftp://, thunders://, etc)
         up_pattern = re.compile(r'^.{0,10}:')
-        #tag link pattern
-        tag_pattern = re.compile(r'\S*#\S*')
         #we only support http/https protocal
         sp_pattern = re.compile(r'http://|https://')
 
@@ -280,7 +287,7 @@ class Crawler(object):
             element = element.strip()
             if re.match(sp_pattern, element):  # begin with http/https
                 #first check if this match those useless pattern
-                if re.findall(uf_pattern, element) or re.findall(tag_pattern, element):
+                if re.findall(uf_pattern, element):
                     continue
                 #check whether it's outer link or inner link
                 test_protocal, test_domain = self.get_protocal_domain(element)
@@ -289,8 +296,6 @@ class Crawler(object):
                 else:
                     inner_link_lists.append(element.strip())
             elif re.findall(uf_pattern, element):
-                continue
-            elif re.findall(tag_pattern, element):
                 continue
             elif re.findall(up_pattern, element):
                 continue
@@ -303,13 +308,24 @@ class Crawler(object):
 
         return (outer_link_lists, inner_link_lists)
 
+    def trim_url_suffix(self, urls):
+        """
+        trim those urls with suffix `#xxxxx' or `?xxxx'
+        NOTE that ALL URLS PASSED IN MUST BE VALID!!!
+        """
+        def _trim_url_suffix(url): #make it reusable
+            #tag link pattern
+            return url.split('#')[0].split('?')[0]
+
+        return list(map(_trim_url_suffix, urls))
+
     def get_protocal_domain(self, url):
         """ return protocal and domain """
         protocal, rest = urllib.parse.splittype(url)
         domain, url_suffix = urllib.parse.splithost(rest)
         return (protocal, domain)
 
-    def dump_content(self, resp):
+    def dump_content(self, resp, origin_url):
         """ requests cannot detect web page encoding automatically(FUCK!).
             response.encoding is from the html reponse header. If we want to
             convert all the content we want to utf8, we have to use `get_encodings_from_content; """
@@ -340,7 +356,17 @@ class Crawler(object):
         except Exception:
             utf8_text = resp.content
 
-        page_url = bytes(resp.url, 'utf-8')
+        # requests的请求会出现重定向。比如
+        #       http://bbs.people.com.cn/
+        #会被重定向到
+        #       http://bbs1.people.com.cn/
+        #因此如果我们取 resp.url 作为爬取的 url 的话
+        #会导致最终数据库中看到 url 重复。因此这里我
+        #我们取传进来的origin_url (bbs, NOT bss1)
+        #
+        #page_url = bytes(resp.url, 'utf-8')
+        page_url = origin_url
+
         _, domain_name = self.get_protocal_domain(resp.url)
         domain_name = bytes(domain_name, 'utf-8')
         titles = re.findall(rb'<title>(.*?)</title>', utf8_text)
