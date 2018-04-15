@@ -205,8 +205,9 @@ class Crawler(object):
                 time.sleep(10) #wait a little bit to see if thing would get better
                 continue
             if not urls:
-                self.logger.info("Empty urls from dns_resolver. Crawler exit")
-                break
+                self.logger.info("Empty urls from dns_resolver. Crawler will loop")
+                time.sleep(10)
+                continue
 
             #####DEBUG
             self.logger.info("GOT urls from manager: [")
