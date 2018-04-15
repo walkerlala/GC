@@ -13,24 +13,15 @@ usage() {
 
 manager() {
     echo -n "Running manager..."
+    rm -f ./log/_blmftr_
     python3 ./src/manager.py > ./log/manager.out 2> ./log/manager.err &
-    if [[ "$?" == 0 ]]
-    then
-        echo "OK"
-    else
-        echo "FAIL"
-    fi
+    show
 }
 
 crawler() {
     echo -n "Running crawler..."
     python3 ./src/crawler.py > ./log/crawler.out 2> ./log/crawler.err &
-    if [[ "$?" == 0 ]]
-    then
-        echo "OK"
-    else
-        echo "FAIL"
-    fi
+    show
 }
 
 terminate() {
@@ -49,8 +40,10 @@ show() {
     man=$(ps aux|perl -ne 'print "$_" if /python3 \.\/src\/manager\.py/')
     cra=$(ps aux|perl -ne 'print "$_" if /python3 \.\/src\/crawler\.py/')
     if [[ -z $man && -z $cra ]]; then
+        echo "FAIL!!"
         echo "No manager/crawler is running in background."
     else
+        echo ""
         echo "$man"
         echo "$cra"
     fi
