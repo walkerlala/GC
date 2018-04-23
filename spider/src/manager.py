@@ -18,6 +18,7 @@ import socket
 import datetime
 import time
 import pickle
+import random
 import threading
 import urllib.parse
 import random
@@ -135,6 +136,12 @@ class PriQueue:
             logger.info("append(): assigning domain[%s] to addr[%s]" % (domain, addr), Logger.STDOUT)
             self.addr_domainNR[addr] = self.addr_domainNR[addr] + 1
         self._release()
+
+    def append_random(self, link):
+        """ Assign this domain randomly to crawler """
+        addrs = [addr for addr in self.addr_domainNR]
+        idx = random.randint(0, len(addrs))
+        self.insert_into(addrs[idx], link)
 
     def get_by_addr(self, addr):
         """ get links from specific prio queue """
@@ -267,6 +274,8 @@ class Manager:
         # crawling_width take effect when self.focusing is False
         self.crawling_width = self.conf.get("crawling_width")
 
+        self.search_engine_weed = self.con.get("search_engine_weed")
+
         #MACRO,represent whether crawler want to send back links
         #or get links from here
         self.SEND = 0
@@ -278,6 +287,22 @@ class Manager:
 
     def bf_release(self):
         self.bf_lock.release()
+
+    def generate_search_engine_random_links(self):
+        """ generate random search engine links
+            (e.g., https://www.baidu.com/s?wd=xxxx)"""
+
+        with open("conf/american-english", "r") as english_file:
+            english_lines = english_file.readlines()
+        with open("conf/idf-chinese.txt", "r") as chinese_file:
+            chinese_lines = chinese_file.readlines()
+
+        for i in range(1000): # 1000 link
+            i = random.randint(0, len(english_lines))
+            j = random.randint(0, len(chinese_lines))
+            line1 = english_lines[i].strip()
+            line2 = chinese_lines[j].strip()
+            self.prio_que.append_random(self.search_engine_weed + line1 + " " + line2)
 
     def handle_connection(self, conn, addr):
         """ handle connection with some crawler """
@@ -353,6 +378,12 @@ class Manager:
                 except Exception as e:
                     raise Exception("Exception:[%s] when getting links from PriQueue" % str(e))
                 #如果prio_que里面没有链接了，我们发送过去的就是一个空的list了
+                #
+                #如果没有链接了，则从一些搜索引擎那里获取一些随即的链接
+                if not len(links_buffer):
+                    logger.info("Empty priority queue now. Trying to generate random links from search engine...")
+                    self.generate_search_engine_random_links()
+
                 data = pickle.dumps(links_buffer)
                 try:
                     conn.sendall(data)
