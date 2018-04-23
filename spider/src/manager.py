@@ -301,7 +301,7 @@ class Manager:
             j = random.randint(0, len(chinese_lines))
             line1 = english_lines[i].strip()
             line2 = chinese_lines[j].strip()
-            link = self.search_engine_weed + line1 + "+" + line2
+            link = self.search_engine_weed + urllib.parse.quote_plus(line1 + "+" + line2)
             logger.info("Link generated: " + str(link))
             self.prio_que.append_random(link)
 
