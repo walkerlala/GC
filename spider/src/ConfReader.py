@@ -21,7 +21,7 @@ class ConfReader(object):
             for line in f:
                 if not line.strip() or line.strip().startswith('#'):
                     continue
-                parts = line.split('#', 1)[0].strip().split("=")
+                parts = line.split('#', 1)[0].strip().split("=", 1)
                 if len(parts) != 2:
                     print("Unrecognized Configuration: [%s]\n" % line, file=sys.stderr)
                     continue

@@ -138,10 +138,9 @@ class PriQueue:
         self._release()
 
     def append_random(self, link):
-        """ Assign this domain randomly to crawler """
-        addrs = [addr for addr in self.addr_domainNR]
-        idx = random.randint(0, len(addrs))
-        self.insert_into(addrs[idx], link)
+        """ Assign this domain to every crawler """
+        for addr in self.addr_domainNR:
+            self.insert_into(addr, link)
 
     def get_by_addr(self, addr):
         """ get links from specific prio queue """
@@ -274,7 +273,7 @@ class Manager:
         # crawling_width take effect when self.focusing is False
         self.crawling_width = self.conf.get("crawling_width")
 
-        self.search_engine_weed = self.con.get("search_engine_weed")
+        self.search_engine_weed = self.conf.get("search_engine_weed")
 
         #MACRO,represent whether crawler want to send back links
         #or get links from here
@@ -302,7 +301,9 @@ class Manager:
             j = random.randint(0, len(chinese_lines))
             line1 = english_lines[i].strip()
             line2 = chinese_lines[j].strip()
-            self.prio_que.append_random(self.search_engine_weed + line1 + " " + line2)
+            link = self.search_engine_weed + line1 + "+" + line2
+            logger.info("Link generated: " + str(link))
+            self.prio_que.append_random(link)
 
     def handle_connection(self, conn, addr):
         """ handle connection with some crawler """
